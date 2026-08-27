@@ -1,0 +1,66 @@
+{
+  "symbol": "XAUUSD",
+  "mode": "signal",
+
+  "engine": {
+    "mode": "STRICT",
+    "weightThreshold": 0.6,
+    "requireSession": true
+  },
+
+  "risk": {
+    "riskPercent": 1,
+    "rrRatio": 2,
+    "maxTradesPerDay": 3,
+    "trailingStop": true,
+    "breakEven": true,
+    "breakEvenBuffer": 5
+  },
+
+  "strategies": {
+    "liquiditySweep": {
+      "enabled": true,
+      "weight": 2,
+      "lookback": 30,
+      "equalTolerance": 0.10,
+      "minWickRatio": 0.55
+    },
+    "fairValueGap": {
+      "enabled": true,
+      "weight": 2,
+      "lookback": 50,
+      "minGapPercent": 0.02,
+      "maxAgeCandles": 20
+    },
+    "maFilter": {
+      "enabled": true,
+      "weight": 1,
+      "periods": [25, 50, 100]
+    },
+    "orderBlock": {
+      "enabled": false,
+      "weight": 1,
+      "lookback": 20,
+      "impulseMinPercent": 0.15,
+      "maxAgeCandles": 30
+    },
+    "marketStructure": {
+      "enabled": false,
+      "weight": 1,
+      "lookback": 20
+    },
+    "sessionFilter": {
+      "enabled": true,
+      "sessions": ["london", "new_york"]
+    }
+  },
+
+  "sessions": {
+    "london":   { "start": "08:00", "end": "17:00", "timezone": "UTC" },
+    "new_york": { "start": "13:00", "end": "22:00", "timezone": "UTC" }
+  },
+
+  "api": {
+    "token": "changeme"
+  }
+}
