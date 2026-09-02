@@ -1,0 +1,9 @@
+{
+  "name": "SMC Telegram Alert",
+  "nodes": [],
+  "connections": {},
+  "active": false,
+  "settings": {},
+  "tags": [],
+  "note": "TODO Step 6 — configure Telegram node with bot token and chat ID"
+}

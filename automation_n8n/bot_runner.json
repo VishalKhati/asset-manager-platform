@@ -1,0 +1,9 @@
+{
+  "name": "SMC Bot Runner",
+  "nodes": [],
+  "connections": {},
+  "active": false,
+  "settings": {},
+  "tags": [],
+  "note": "TODO Step 6 — configure Cron trigger every 1 minute calling /api/signal"
+}

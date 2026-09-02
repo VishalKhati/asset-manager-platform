@@ -1,0 +1,158 @@
+{
+  "name": "SMC Gold Bot — Signal Alert (Telegram + Email)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "smc-signal",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook (Signal from Bot)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "OK",
+        "options": {}
+      },
+      "id": "respond-ok",
+      "name": "Respond 200 OK",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [480, 180]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.payload.signal.signal }}",
+              "operation": "isNotEmpty"
+            }
+          ]
+        }
+      },
+      "id": "check-signal",
+      "name": "Has Signal?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [480, 380]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "direction",
+              "value": "={{ $json.payload.signal.signal }}"
+            },
+            {
+              "name": "confidence",
+              "value": "={{ Math.round($json.payload.signal.confidence * 100) }}%"
+            },
+            {
+              "name": "price",
+              "value": "={{ $json.payload.price }}"
+            },
+            {
+              "name": "mode",
+              "value": "={{ $json.payload.signal.mode }}"
+            },
+            {
+              "name": "reason",
+              "value": "={{ $json.payload.signal.reason }}"
+            },
+            {
+              "name": "strategies",
+              "value": "={{ $json.payload.signal.agreeing.join(', ') }}"
+            },
+            {
+              "name": "emoji",
+              "value": "={{ $json.payload.signal.signal === 'BUY' ? '🟢' : '🔴' }}"
+            },
+            {
+              "name": "telegramMessage",
+              "value": "={{ $json.payload.signal.signal === 'BUY' ? '🟢' : '🔴' }} *SMC Gold Bot — {{ $json.payload.signal.signal }}*\n\n💰 Price: `${{ $json.payload.price }}`\n📊 Confidence: `{{ Math.round($json.payload.signal.confidence * 100) }}%`\n⚙️ Mode: `{{ $json.payload.signal.mode }}`\n✅ Strategies: {{ $json.payload.signal.agreeing.join(', ') }}\n📝 {{ $json.payload.signal.reason }}\n\n🕐 {{ new Date($json.payload.signal.timestamp).toLocaleTimeString() }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "format-message",
+      "name": "Format Message",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 1,
+      "position": [720, 380]
+    },
+    {
+      "parameters": {
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "telegramApi",
+        "resource": "message",
+        "chatId": "={{ $env.TELEGRAM_CHAT_ID }}",
+        "text": "={{ $json.telegramMessage }}",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "id": "telegram-send",
+      "name": "Send Telegram Alert",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [960, 280],
+      "credentials": {
+        "telegramApi": {
+          "id": "telegram-bot",
+          "name": "SMC Bot Telegram"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $env.ALERT_FROM_EMAIL }}",
+        "toEmail": "={{ $env.ALERT_TO_EMAIL }}",
+        "subject": "={{ $json.emoji }} SMC Gold Bot — {{ $json.direction }} Signal @ ${{ $json.price }}",
+        "text": "=SMC Gold Bot Signal Alert\n\nDirection:  {{ $json.direction }}\nPrice:      ${{ $json.price }}\nConfidence: {{ $json.confidence }}\nMode:       {{ $json.mode }}\nStrategies: {{ $json.strategies }}\n\nReason:\n{{ $json.reason }}\n\n---\nSent by SMC Gold Bot",
+        "options": {}
+      },
+      "id": "send-email",
+      "name": "Send Email Alert",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [960, 480]
+    }
+  ],
+  "connections": {
+    "Webhook (Signal from Bot)": {
+      "main": [
+        [
+          { "node": "Respond 200 OK",  "type": "main", "index": 0 },
+          { "node": "Has Signal?",     "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Has Signal?": {
+      "main": [
+        [
+          { "node": "Format Message", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Format Message": {
+      "main": [
+        [
+          { "node": "Send Telegram Alert", "type": "main", "index": 0 },
+          { "node": "Send Email Alert",    "type": "main", "index": 0 }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "tags": ["smc-gold-bot", "alerts"]
+}

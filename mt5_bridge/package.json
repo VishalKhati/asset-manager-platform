@@ -1,0 +1,11 @@
+{
+  "name": "smc-mt5-bridge",
+  "version": "1.0.0",
+  "description": "SMC Gold Bot — MT5 Bridge (runs locally with MetaTrader 5)",
+  "main": "bridge.js",
+  "scripts": {
+    "start": "node bridge.js",
+    "dev":   "node --watch bridge.js"
+  },
+  "engines": { "node": ">=18" }
+}
