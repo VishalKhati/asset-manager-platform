@@ -1,0 +1,138 @@
+@import "tailwindcss";
+
+:root {
+  --bg-base:      #070b12;
+  --bg-card:      #0c1120;
+  --bg-card-2:    #0f1628;
+  --bg-hover:     #131d30;
+  --border:       #1a2540;
+  --border-dim:   #111c32;
+  --gold:         #f5c142;
+  --gold-dim:     #a37f10;
+  --green:        #10b981;
+  --green-dim:    #064e35;
+  --red:          #ef4444;
+  --red-dim:      #4c1010;
+  --blue:         #3b82f6;
+  --blue-dim:     #0c2040;
+  --text-1:       #f1f5f9;
+  --text-2:       #94a3b8;
+  --text-3:       #475569;
+  --text-4:       #1e3050;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  background: var(--bg-base);
+  color: var(--text-1);
+  min-height: 100vh;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+code, .mono, .font-mono { font-family: 'JetBrains Mono', 'Fira Code', monospace; }
+
+/* ── Scrollbar ─────────────────────────────── */
+::-webkit-scrollbar       { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #1e2d4a; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #2d4060; }
+
+/* ── Animations ────────────────────────────── */
+@keyframes pulse-ring {
+  0%   { box-shadow: 0 0 0 0 rgba(245, 193, 66, 0.4); }
+  70%  { box-shadow: 0 0 0 8px rgba(245, 193, 66, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(245, 193, 66, 0); }
+}
+@keyframes pulse-green {
+  0%   { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.5); }
+  70%  { box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+}
+@keyframes pulse-red {
+  0%   { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.5); }
+  70%  { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+}
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.3; }
+}
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes glow-buy {
+  0%, 100% { text-shadow: 0 0 20px rgba(16,185,129,0.6); }
+  50%       { text-shadow: 0 0 40px rgba(16,185,129,0.9), 0 0 60px rgba(16,185,129,0.3); }
+}
+@keyframes glow-sell {
+  0%, 100% { text-shadow: 0 0 20px rgba(239,68,68,0.6); }
+  50%       { text-shadow: 0 0 40px rgba(239,68,68,0.9), 0 0 60px rgba(239,68,68,0.3); }
+}
+
+.pulse-gold   { animation: pulse-ring  1.8s ease-in-out infinite; }
+.pulse-dot    { animation: blink       1.4s ease-in-out infinite; }
+.slide-up     { animation: slideUp     0.3s ease; }
+.glow-buy     { animation: glow-buy    2s ease-in-out infinite; }
+.glow-sell    { animation: glow-sell   2s ease-in-out infinite; }
+.pulse-green  { animation: pulse-green 2s ease-in-out infinite; }
+.pulse-red    { animation: pulse-red   2s ease-in-out infinite; }
+
+/* ── Card base ─────────────────────────────── */
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.card:hover { border-color: #243656; }
+
+/* ── Table ─────────────────────────────────── */
+.data-table { width: 100%; border-collapse: collapse; }
+.data-table th {
+  text-align: left;
+  padding: 10px 16px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-3);
+  background: var(--bg-card-2);
+  border-bottom: 1px solid var(--border);
+}
+.data-table td {
+  padding: 11px 16px;
+  border-bottom: 1px solid var(--border-dim);
+  color: var(--text-1);
+}
+.data-table tbody tr:hover { background: var(--bg-hover); }
+.data-table tbody tr:last-child td { border-bottom: none; }
+
+/* ── Toggle switch ─────────────────────────── */
+.toggle-track {
+  position: relative;
+  width: 44px;
+  height: 24px;
+  border-radius: 99px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.toggle-thumb {
+  position: absolute;
+  top: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  transition: left 0.2s, background 0.2s;
+}
+
+/* ── Transitions ───────────────────────────── */
+.fade-enter-active, .fade-leave-active { transition: opacity 0.25s; }
+.fade-enter-from, .fade-leave-to { opacity: 0; }
+
+.slide-fade-enter-active { transition: all 0.2s ease; }
+.slide-fade-leave-active { transition: all 0.15s ease; }
+.slide-fade-enter-from { opacity: 0; transform: translateX(-8px); }
+.slide-fade-leave-to   { opacity: 0; transform: translateX(8px); }
