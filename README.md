@@ -68,12 +68,12 @@ To run the full stack locally with demo data, see [docs/RUNBOOK.md](docs/RUNBOOK
 |---|---|---|
 | `lib/strategy` (vitest) | 27 | Indicators, tracker edge cases, DST sessions, golden parity with Python |
 | `artifacts/api-server` (vitest + Postgres) | 30 | Live engine matches the reference, survives restarts, never double-posts; auth, roles, CSRF, lockout, ingest signing and validation, public/private visibility |
-| `research` (pytest) | 23 | Indicators, tracker, sessions and news, golden parity with TypeScript |
+| `research` (pytest) | 29 | Indicators, tracker, sessions and news, v2 breakout rules, golden parity with TypeScript |
 | `feeder` (pytest, Linux + Windows) | 10 | UTC offset, closed-bar rule, outage/restart safety, request signing (shared test vector with the API) |
 
 ## Status
 
-**Research verdict: the textbook EMA + Stochastic + ATR pullback strategy does not work on gold.** Walk-forward out of sample it loses 0.09R per trade over 1,378 trades (profit factor 0.82), and the 2026 holdout loses 0.19R per trade. The pipeline is built so that a failing strategy is caught before anyone trades it, and this one was. See [research/reports/WALKFORWARD.md](research/reports/WALKFORWARD.md).
+**Research verdict: the textbook EMA + Stochastic + ATR pullback strategy does not work on gold.** Walk-forward out of sample it loses 0.09R per trade over 1,378 trades (profit factor 0.82), and the 2026 holdout loses 0.19R per trade. A second, pre-registered hypothesis (London-open breakout of the Asian range) came closer but also failed: −0.035R per trade over 611 out-of-sample trades, with a 95% interval spanning zero. The pipeline is built so that a failing strategy is caught before anyone trades it, and both were. Reports: [v1](research/reports/WALKFORWARD.md), [v2](research/reports/WALKFORWARD_LONDON_ORB.md), [research log](research/reports/GRAVEYARD.md).
 
 
 The software for the gold MVP is built and tested locally. Next are the forward test on a demo account, deployment, and the go/no-go gates in [PLAN.md](PLAN.md). The earlier "SMC Gold Bot" prototype and its evaluation are recorded in PLAN.md §1.

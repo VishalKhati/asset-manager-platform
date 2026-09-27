@@ -67,6 +67,12 @@ def _gate_rows(res: dict) -> list[str]:
     return [f"| {name} | {limit} | {value} | {'yes' if passed else 'no'} |" for name, limit, value, passed in rows]
 
 
+def _params_label(c: dict) -> str:
+    if "slAtrMult" in c:
+        return f"SL {c['slAtrMult']}×ATR, pullback {c['pullbackBars']}, TP1 close {int(c['tp1Fraction'] * 100)}%"
+    return f"stop {c['stop']}, TP2 {c['tp2R']}R, trend filter {'on' if c['trendFilter'] else 'off'}"
+
+
 def render_markdown(res: dict) -> str:
     g = res["gate"]
     verdict = "PASS" if g["pass"] else "FAIL"
@@ -100,8 +106,7 @@ def render_markdown(res: dict) -> str:
     for w in res["windows"]:
         c = w["chosen"]
         lines.append(
-            f"| {w['test'][0]} → {w['test'][1]} | SL {c['slAtrMult']}×ATR, pullback {c['pullbackBars']}, "
-            f"TP1 close {int(c['tp1Fraction'] * 100)}% | {_f(w['trainStats']['expectancyR'], 3)} | "
+            f"| {w['test'][0]} → {w['test'][1]} | {_params_label(c)} | {_f(w['trainStats']['expectancyR'], 3)} | "
             f"{w['testStats']['trades']} | {_f(w['testStats']['expectancyR'], 3)} | {_f(w['testStats']['profitFactor'])} |"
         )
     lines += ["", "## Default parameters, whole period", "", HEADER,
@@ -116,7 +121,7 @@ def render_markdown(res: dict) -> str:
               "", "## Full grid, whole period (in-sample, for context only)", "", HEADER]
     for row in res["gridFullPeriod"]:
         c = row["params"]
-        lines.append(_row(f"SL {c['slAtrMult']}, PB {c['pullbackBars']}, TP1 {int(c['tp1Fraction'] * 100)}%", row["stats"]))
+        lines.append(_row(_params_label(c), row["stats"]))
     reasons = res["defaultDecisionReasons"]
     total = sum(reasons.values()) or 1
     lines += ["", "## Why most M5 bars produce no signal (default parameters)", "",

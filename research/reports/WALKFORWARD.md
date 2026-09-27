@@ -1,6 +1,6 @@
 # Walk-forward report: ema_stoch_atr v1
 
-Generated 2026-09-26T21:16:18Z from Dukascopy XAUUSD M1 data, 2019-01-01 to 2026-09-25 (2,742,123 bars). All results are hypothetical and net of spread, commission and slippage unless stated.
+Generated 2026-09-27T07:50:14Z from Dukascopy XAUUSD M1 data, 2019-01-01 to 2026-09-25 (2,742,123 bars). All results are hypothetical and net of spread, commission and slippage unless stated.
 
 ## Gate 1 verdict: **FAIL**
 
@@ -60,14 +60,14 @@ Train 24 months, test 6 months. Parameters are chosen on the train window only (
 
 | Period | Trades | Win rate | Profit factor | Expectancy (R) | Total R | Max DD (R) |
 |---|---|---|---|---|---|---|
-| SL 1.5, PB 3, TP1 50% | 2213 | 44.5% | 0.74 | -0.143 | -316.5 | 327.8 |
-| SL 1.5, PB 3, TP1 0% | 2213 | 26.6% | 0.75 | -0.143 | -316.9 | 332.0 |
-| SL 1.5, PB 5, TP1 50% | 2216 | 44.5% | 0.74 | -0.144 | -318.2 | 329.4 |
-| SL 1.5, PB 5, TP1 0% | 2216 | 26.5% | 0.74 | -0.144 | -319.1 | 334.1 |
-| SL 2.0, PB 3, TP1 50% | 2100 | 45.0% | 0.78 | -0.114 | -238.5 | 245.7 |
-| SL 2.0, PB 3, TP1 0% | 2100 | 30.7% | 0.79 | -0.108 | -226.0 | 234.5 |
-| SL 2.0, PB 5, TP1 50% | 2103 | 45.0% | 0.78 | -0.114 | -240.2 | 247.3 |
-| SL 2.0, PB 5, TP1 0% | 2103 | 30.7% | 0.79 | -0.108 | -228.2 | 236.7 |
+| SL 1.5×ATR, pullback 3, TP1 close 50% | 2213 | 44.5% | 0.74 | -0.143 | -316.5 | 327.8 |
+| SL 1.5×ATR, pullback 3, TP1 close 0% | 2213 | 26.6% | 0.75 | -0.143 | -316.9 | 332.0 |
+| SL 1.5×ATR, pullback 5, TP1 close 50% | 2216 | 44.5% | 0.74 | -0.144 | -318.2 | 329.4 |
+| SL 1.5×ATR, pullback 5, TP1 close 0% | 2216 | 26.5% | 0.74 | -0.144 | -319.1 | 334.1 |
+| SL 2.0×ATR, pullback 3, TP1 close 50% | 2100 | 45.0% | 0.78 | -0.114 | -238.5 | 245.7 |
+| SL 2.0×ATR, pullback 3, TP1 close 0% | 2100 | 30.7% | 0.79 | -0.108 | -226.0 | 234.5 |
+| SL 2.0×ATR, pullback 5, TP1 close 50% | 2103 | 45.0% | 0.78 | -0.114 | -240.2 | 247.3 |
+| SL 2.0×ATR, pullback 5, TP1 close 0% | 2103 | 30.7% | 0.79 | -0.108 | -228.2 | 236.7 |
 
 ## Why most M5 bars produce no signal (default parameters)
 

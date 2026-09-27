@@ -14,7 +14,7 @@ from datetime import UTC, date, datetime
 import numpy as np
 import pandas as pd
 
-from . import STRATEGY_ID, STRATEGY_VERSION
+from . import STRATEGY_VERSION
 from .news import proxy_calendar
 from .params import Params
 from .replay import Replay, bars_from_arrays
@@ -57,11 +57,16 @@ class RunResult:
     reasons: dict
 
 
-def run_one(label: str, params_json: dict, use_news: bool = True) -> RunResult:
+def run_one(label: str, params_json: dict, use_news: bool = True, orb: dict | None = None) -> RunResult:
     df = _DATA["df"]
     p = Params.from_json(params_json)
     news = _DATA["news"] if use_news else []
-    r = Replay(p, news=news)
+    if orb is not None:
+        from .orb import OrbConfig, OrbReplay
+
+        r = OrbReplay(p, OrbConfig(**orb), news=news)
+    else:
+        r = Replay(p, news=news)
     r.run(bars_from_arrays(df["t"], df["o"], df["h"], df["l"], df["c"], df["spread"]))
     trades, expired = [], []
     for s in r.signals:
@@ -69,7 +74,7 @@ def run_one(label: str, params_json: dict, use_news: bool = True) -> RunResult:
             expired.append(s.t)
         elif s.outcome:
             trades.append(s.to_json())
-    return RunResult(label, params_json, trades, expired, dict(r.reasons))
+    return RunResult(label, orb if orb is not None else params_json, trades, expired, dict(r.reasons))
 
 
 def _run_star(args):
@@ -98,24 +103,41 @@ def _json_safe(x):
     return x
 
 
-def walk_forward(df: pd.DataFrame, base: Params | None = None, processes: int = 8) -> dict:
+# Pre-registered in research/HYPOTHESIS_V2.md (committed before any v2 run).
+ORB_GRID: list[dict] = [
+    {"stop": stop, "tp2R": tp2, "trendFilter": trend}
+    for stop in ("opposite", "mid")
+    for tp2 in (2.0, 3.0)
+    for trend in (True, False)
+]
+
+
+def walk_forward(df: pd.DataFrame, base: Params | None = None, processes: int = 8, strategy: str = "ema_stoch_atr") -> dict:
     base = base or Params()
+    orb = strategy == "london_orb"
+    grid = ORB_GRID if orb else GRID
     start_day = datetime.fromtimestamp(int(df["t"].iloc[0]), UTC).date()
     end_day = datetime.fromtimestamp(int(df["t"].iloc[-1]), UTC).date()
     news = proxy_calendar(start_day, end_day)
     arrays = {k: df[k].to_numpy() for k in ("t", "o", "h", "l", "c", "spread")}
 
     jobs = []
-    for i, g in enumerate(GRID):
-        jobs.append((f"grid{i}", base.replace(**g).to_json(), True))
     default_json = base.to_json()
-    jobs.append(("default_no_news", default_json, False))
-    jobs.append(("default_no_costs", base.replace(commission=0.0, slippage=0.0).to_json(), True))
+    if orb:
+        for i, g in enumerate(grid):
+            jobs.append((f"grid{i}", default_json, True, g))
+        jobs.append(("default_no_news", default_json, False, grid[0]))
+        jobs.append(("default_no_costs", base.replace(commission=0.0, slippage=0.0).to_json(), True, grid[0]))
+    else:
+        for i, g in enumerate(grid):
+            jobs.append((f"grid{i}", base.replace(**g).to_json(), True, None))
+        jobs.append(("default_no_news", default_json, False, None))
+        jobs.append(("default_no_costs", base.replace(commission=0.0, slippage=0.0).to_json(), True, None))
 
     with mp.get_context("fork").Pool(processes, initializer=_init_worker, initargs=(arrays, news)) as pool:
         results: list[RunResult] = pool.map(_run_star, jobs)
     by_label = {r.label: r for r in results}
-    grid_runs = [by_label[f"grid{i}"] for i in range(len(GRID))]
+    grid_runs = [by_label[f"grid{i}"] for i in range(len(grid))]
 
     # Walk-forward windows.
     windows = []
@@ -138,7 +160,7 @@ def walk_forward(df: pd.DataFrame, base: Params | None = None, processes: int = 
         windows.append({
             "train": [train_start.isoformat(), test_start.isoformat()],
             "test": [test_start.isoformat(), test_end.isoformat()],
-            "chosen": GRID[best],
+            "chosen": grid[best],
             "trainStats": scored[0][4],
             "testStats": test,
         })
@@ -166,17 +188,18 @@ def walk_forward(df: pd.DataFrame, base: Params | None = None, processes: int = 
         by_year[str(y)] = window_stats(grid_runs[0], _ts(date(y, 1, 1)), _ts(date(y + 1, 1, 1)))
 
     return _json_safe({
-        "strategy": {"id": STRATEGY_ID, "version": STRATEGY_VERSION},
+        "strategy": {"id": strategy, "version": 1 if orb else STRATEGY_VERSION},
         "generatedAt": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "data": {"from": start_day.isoformat(), "to": end_day.isoformat(), "m1Bars": int(len(df))},
-        "design": {"grid": GRID, "trainMonths": TRAIN_MONTHS, "testMonths": TEST_MONTHS,
+        "design": {"grid": grid, "trainMonths": TRAIN_MONTHS, "testMonths": TEST_MONTHS,
                    "firstTest": FIRST_TEST.isoformat(), "holdoutStart": HOLDOUT_START.isoformat(),
-                   "minTrainTrades": MIN_TRAIN_TRADES, "newsCalendar": "proxy (see xausig/news.py)"},
+                   "minTrainTrades": MIN_TRAIN_TRADES, "newsCalendar": "proxy (see xausig/news.py)",
+                   "preRegistration": "research/HYPOTHESIS_V2.md" if orb else "docs/STRATEGY_SPEC.md"},
         "baseParams": default_json,
         "windows": windows,
         "oos": oos,
         "oosEquityR": _equity(oos_trades),
-        "holdout": {"chosen": GRID[h_best], "stats": holdout},
+        "holdout": {"chosen": grid[h_best], "stats": holdout},
         "gate": gate,
         "defaultFullPeriod": full_default,
         "defaultByYear": by_year,
@@ -187,7 +210,7 @@ def walk_forward(df: pd.DataFrame, base: Params | None = None, processes: int = 
                 by_label["default_no_costs"], _ts(start_day), _ts(end_day) + 86_400),
         },
         "gridFullPeriod": [
-            {"params": GRID[i], "stats": window_stats(r, _ts(start_day), _ts(end_day) + 86_400)}
+            {"params": grid[i], "stats": window_stats(r, _ts(start_day), _ts(end_day) + 86_400)}
             for i, r in enumerate(grid_runs)
         ],
     })

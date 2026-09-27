@@ -28,6 +28,7 @@ def main(argv: list[str] | None = None) -> None:
     bt.add_argument("--no-news", action="store_true")
     wf = sub.add_parser("walkforward", help="full walk-forward + holdout report")
     wf.add_argument("--processes", type=int, default=8)
+    wf.add_argument("--strategy", choices=["ema_stoch_atr", "london_orb"], default="ema_stoch_atr")
     args = ap.parse_args(argv)
 
     if args.cmd == "build-data":
@@ -57,11 +58,13 @@ def main(argv: list[str] | None = None) -> None:
         from .walkforward import walk_forward
 
         t0 = time.time()
-        res = walk_forward(load_m1(M1_PATH), processes=args.processes)
+        res = walk_forward(load_m1(M1_PATH), processes=args.processes, strategy=args.strategy)
         REPORTS.mkdir(exist_ok=True)
-        (REPORTS / "walkforward.json").write_text(json.dumps(res, indent=2) + "\n")
-        (REPORTS / "walkforward_equity.svg").write_text(equity_svg(res["oosEquityR"]))
-        (REPORTS / "WALKFORWARD.md").write_text(render_markdown(res))
+        suffix = "" if args.strategy == "ema_stoch_atr" else f"_{args.strategy}"
+        (REPORTS / f"walkforward{suffix}.json").write_text(json.dumps(res, indent=2) + "\n")
+        (REPORTS / f"walkforward{suffix}_equity.svg").write_text(equity_svg(res["oosEquityR"]))
+        md = render_markdown(res).replace("walkforward_equity.svg", f"walkforward{suffix}_equity.svg")
+        (REPORTS / f"WALKFORWARD{suffix.upper()}.md").write_text(md)
         print(f"gate pass={res['gate']['pass']} oos={res['oos']['trades']} trades, "
               f"exp={res['oos']['expectancyR']:.3f}R in {time.time() - t0:.0f}s")
 
