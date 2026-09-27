@@ -7,7 +7,7 @@ packages:
   - lib/*
 
 catalog:
-  '@tailwindcss/vite': ^4.1.14
+  '@tailwindcss/vite': ^4.3.3
   '@types/node': ^25.3.3
   drizzle-orm: ^0.45.2
   tailwindcss: ^4.1.14
