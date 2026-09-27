@@ -1,84 +1,79 @@
-# SMC Gold Bot - Asset Manager
+# Gold Signals: an honest XAUUSD signal service
 
-SMC Gold Bot is a trading automation and asset monitoring project for XAUUSD and BTCUSD. It combines a dashboard, Smart Money Concepts signal engine, backtesting, optimization, MT5 bridge, Telegram/email alert workflows, and n8n automation templates.
+A production-style trading-signal service for gold (XAUUSD). A server-side engine turns MetaTrader 5 price data into trade signals, posts them to Telegram, and tracks every one to its outcome automatically. A public page shows the complete record, losses included. The strategy was backtested with walk-forward validation before anything was published.
 
-## Why It Matters
+> Research and engineering project, not financial advice. See [docs/LEGAL.md](docs/LEGAL.md).
 
-This project is resume-worthy because it shows product thinking beyond a simple dashboard: signal generation, risk management, trading configuration, historical backtesting, integrations, and operations workflows.
+![Public track record](docs/screenshots/track-record.png)
 
-## Tech Stack
+## What it does
 
-- Frontend: Vue, Vite, TypeScript, Chart.js, Pinia
-- Backend/API artifacts: workspace API packages
-- Bot logic: Node.js signal engine and risk manager
-- Automation: n8n workflow exports
-- Trading bridge: MT5 bridge scripts and MetaTrader connector
-- Workspace: pnpm monorepo
+- **Rules-based strategy.** It uses the M15 trend (EMA 20/50/200), an M5 pullback plus a Stochastic(5,3,3) cross out of the extreme zone, and ATR/swing stops with 1R and 2R targets. It filters by session (London and New York, DST-aware), news, spread and volatility, allows one signal at a time, and cools down after a loss. Frozen in [docs/STRATEGY_SPEC.md](docs/STRATEGY_SPEC.md).
+- **Backtest first.** The Python research package runs a walk-forward test on 7+ years of Dukascopy M1 bid/ask data, with spread, commission and slippage. The parameter grid is pre-registered, 2026 is a locked holdout, Monte Carlo drawdown is reported, and pass/fail gates are fixed before looking. Results: [research/reports/WALKFORWARD.md](research/reports/WALKFORWARD.md).
+- **One strategy, two languages, zero drift.** The rules exist in Python for research and TypeScript for the live engine. Shared golden fixtures prove they make the same decision at every M5 close and resolve every signal to the same R.
+- **Live engine.** It processes each closed M1 bar in a single Postgres transaction covering signals, events, the "why no signal" log, the Telegram outbox and the cursor. Restarts and outages can't double-post or lose a signal. A single leader runs via an advisory lock.
+- **Outcome tracking.** Every signal is resolved on M1 data with conservative intrabar rules: the stop wins ties, TP1 closes half and moves the stop to entry, then TP2. There is also a time exit. Results are in R after costs.
+- **Telegram.** Each signal is one message, edited in place as TP1, TP2 or the stop hits, plus a threaded reply. Admin commands: `/pause /resume /stats /health /last /mode`. The admins are alerted if the feed goes silent.
+- **Web.** A public track record with an equity curve, every signal, and candlestick charts showing entry, stop and targets (TradingView Lightweight Charts). Operator pages cover health, the "why no signal" log, versioned strategy parameters, research reports, price alerts, users and the audit log. Updates stream over server-sent events.
+- **MT5 feeder.** A small Python service on a Windows VPS pushes closed bars and spread over Tailscale with HMAC-signed requests. It detects the broker's UTC offset and uses a local SQLite outbox, so outages lose nothing.
 
-## Main Features
+| Signal detail | Operator overview |
+|---|---|
+| ![Signal](docs/screenshots/signal-detail.png) | ![Overview](docs/screenshots/ops-overview.png) |
 
-- Live dashboard for XAUUSD and BTCUSD
-- Smart Money Concepts strategy engine
-- Signal modes: strict, flex, weighted
-- Risk configuration for stop loss, take profit, and lot sizing
-- Backtesting and optimizer flows
-- Price alerts and notification workflows
-- MT5 bridge support
-- n8n workflow templates for bot execution and Telegram alerts
+## Architecture
 
-## Project Structure
-
-```text
-artifacts/dashboard       Vue + Vite dashboard
-artifacts/api-server      API/backend artifact
-bot/                      Signal engine and risk manager
-backtest/                 Backtest and report scripts
-mt5_bridge/               MT5 bridge implementation and docs
-automation_n8n/           n8n workflow JSON files
-USER_GUIDE.md             Detailed user guide
-replit.md                 Implementation notes
+```
+Windows VPS                                   Linux VPS (Docker Compose)
+MT5 terminal ─► feeder (Python) ──HTTPS+HMAC──► Caddy ─► api (Express, SSE) ◄── browsers
+               closed M1 bars      Tailscale         │        │ LISTEN/NOTIFY
+                                                     │        ▼
+                                                  Postgres ◄── engine (strategy, tracker,
+                                                               Telegram outbox, watchdog, news)
+Laptop: research/ (Python) ── walk-forward report ──► uploaded to the API
 ```
 
-## Setup
+Details: [docs/DESIGN.md](docs/DESIGN.md). Operations: [docs/RUNBOOK.md](docs/RUNBOOK.md). Roadmap and status: [PLAN.md](PLAN.md).
+
+## Tech
+
+TypeScript (Express 5, Vue 3, Pinia, Tailwind 4, Drizzle ORM, zod, grammY, prom-client, Lightweight Charts) · PostgreSQL 16 · Python (pandas, pyarrow, pytest) · esbuild, Vite, pnpm workspaces · Docker, Caddy, GitHub Actions, GHCR.
+
+## Repository
+
+| Path | What |
+|---|---|
+| `lib/strategy` | Pure TypeScript strategy, indicators, tracker and stats: the live engine's core |
+| `research/` | Python reference implementation, data pipeline, walk-forward, reports |
+| `fixtures/golden/` | Shared inputs and expected outputs both languages must reproduce |
+| `artifacts/api-server` | API, engine and CLI (bundled into self-contained `dist/*.mjs`) |
+| `artifacts/dashboard` | Vue SPA: public track record and `/ops` operator pages |
+| `lib/db` | Drizzle schema and SQL migrations |
+| `feeder/` | MT5 feeder for Windows, plus a replay tool for demos |
+| `deploy/` | Compose stack, Caddyfile, env template |
+
+## Quick start
 
 ```bash
 pnpm install --frozen-lockfile
+pnpm --filter @workspace/strategy test            # strategy + golden parity
+pnpm run build                                    # typecheck + build API and dashboard
 ```
 
-Optional integration configuration:
+To run the full stack locally with demo data, see [docs/RUNBOOK.md](docs/RUNBOOK.md#local-development). To deploy, see [docs/RUNBOOK.md](docs/RUNBOOK.md#deploy-linux-vps).
 
-- `mt5_bridge/.env.example`
-- `automation_n8n/.env.example`
+## Tests
 
-Do not commit live trading credentials, Telegram tokens, broker keys, or local `.env` files.
+| Suite | Count | What it proves |
+|---|---|---|
+| `lib/strategy` (vitest) | 27 | Indicators, tracker edge cases, DST sessions, golden parity with Python |
+| `artifacts/api-server` (vitest + Postgres) | 30 | Live engine matches the reference, survives restarts, never double-posts; auth, roles, CSRF, lockout, ingest signing and validation, public/private visibility |
+| `research` (pytest) | 23 | Indicators, tracker, sessions and news, golden parity with TypeScript |
+| `feeder` (pytest, Linux + Windows) | 10 | UTC offset, closed-bar rule, outage/restart safety, request signing (shared test vector with the API) |
 
-## Verification
+## Status
 
-Verified on 2026-08-27:
+**Research verdict: the textbook EMA + Stochastic + ATR pullback strategy does not work on gold.** Walk-forward out of sample it loses 0.09R per trade over 1,378 trades (profit factor 0.82), and the 2026 holdout loses 0.19R per trade. The pipeline is built so that a failing strategy is caught before anyone trades it, and this one was. See [research/reports/WALKFORWARD.md](research/reports/WALKFORWARD.md).
 
-```bash
-pnpm run typecheck
-```
 
-Result: passed.
-
-The root build requires runtime environment variables and attempts to build the dev-only mockup sandbox. A focused dashboard build passed with:
-
-```bash
-PORT=18909 BASE_PATH=/ pnpm --filter @workspace/dashboard run build
-```
-
-Notes:
-
-- Vite warns that Node.js 20.19+ or 22.12+ is preferred; current local Node was 20.15.1.
-- Root `pnpm run build` fails if `PORT`/`BASE_PATH` are not provided for Vite configs.
-
-## Resume Bullet
-
-Built a trading automation dashboard with Smart Money Concepts signal logic, configurable risk controls, backtesting, optimizer workflows, MT5 bridge integration, and n8n alert automation for XAUUSD and BTCUSD monitoring.
-
-## Resume Readiness
-
-Status: Strong resume candidate.
-
-Use this as one of the top three portfolio projects after adding screenshots and a clear simulation/not financial advice disclaimer in any public repo.
+The software for the gold MVP is built and tested locally. Next are the forward test on a demo account, deployment, and the go/no-go gates in [PLAN.md](PLAN.md). The earlier "SMC Gold Bot" prototype and its evaluation are recorded in PLAN.md §1.
