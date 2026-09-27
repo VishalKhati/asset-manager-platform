@@ -13,7 +13,13 @@ export type AuditAction =
   | "user.suspend"
   | "user.activate"
   | "user.promote"
-  | "user.demote";
+  | "user.demote"
+  | "user.password_change"
+  | "user.create"
+  | "engine.pause"
+  | "engine.resume"
+  | "config.activate"
+  | "backtest.upload";
 
 export interface AuditParams {
   actorId:        string;

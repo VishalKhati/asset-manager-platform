@@ -1,29 +1,41 @@
-/**
- * JWT utilities and password hashing.
- * Uses SESSION_SECRET as the signing key (already a Replit-managed secret).
- */
+/** Session tokens (JWT in an httpOnly cookie) and password hashing. */
 
-import jwt        from "jsonwebtoken";
-import bcrypt     from "bcryptjs";
+import jwt from "jsonwebtoken";
+import bcrypt from "bcryptjs";
+import { config } from "../config.js";
 
-const JWT_SECRET  = process.env["SESSION_SECRET"] ?? process.env["JWT_SECRET"] ?? "smc_dev_change_me";
-const JWT_EXPIRES = "30d";
+export const SESSION_COOKIE = "amp_session";
 
 export interface JwtPayload {
-  userId:   string;
+  userId: string;
   username: string;
+  role: string;
+  /** Must equal users.token_version, so bumping it revokes every existing session. */
+  tv: number;
 }
 
 export function signToken(payload: JwtPayload): string {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES });
+  return jwt.sign(payload, config.JWT_SECRET, { expiresIn: `${config.SESSION_HOURS}h`, algorithm: "HS256" });
 }
 
 export function verifyToken(token: string): JwtPayload | null {
   try {
-    return jwt.verify(token, JWT_SECRET) as JwtPayload;
+    const decoded = jwt.verify(token, config.JWT_SECRET, { algorithms: ["HS256"] }) as JwtPayload;
+    if (typeof decoded.userId !== "string" || typeof decoded.tv !== "number") return null;
+    return decoded;
   } catch {
     return null;
   }
+}
+
+export function sessionCookieOptions() {
+  return {
+    httpOnly: true,
+    secure: config.COOKIE_SECURE,
+    sameSite: "strict" as const,
+    path: "/",
+    maxAge: config.SESSION_HOURS * 3600 * 1000,
+  };
 }
 
 export async function hashPassword(password: string): Promise<string> {

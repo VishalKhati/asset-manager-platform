@@ -12,11 +12,13 @@ import { db }            from "@workspace/db";
 import { priceAlertsTable } from "@workspace/db/schema";
 import { eq, and, desc } from "drizzle-orm";
 import { requireAuth }   from "../middlewares/auth.js";
+import { config }        from "../config.js";
 
 const router = Router();
 router.use(requireAuth);
 
-const SUPPORTED = ["XAUUSD", "BTCUSD"];
+// Alerts are checked by the engine against every stored M1 bar of the service's symbol.
+const SUPPORTED = [config.SYMBOL];
 
 // ─── GET /api/alerts ──────────────────────────────────────────────────────────
 

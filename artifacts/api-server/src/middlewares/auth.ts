@@ -1,63 +1,72 @@
-import { type Request, type Response, type NextFunction } from "express";
-import { verifyToken } from "../lib/jwtAuth.js";
-import { db }          from "@workspace/db";
-import { usersTable }  from "@workspace/db/schema";
-import { eq }          from "drizzle-orm";
+import type { NextFunction, Request, Response } from "express";
+import { db, usersTable } from "@workspace/db";
+import { eq } from "drizzle-orm";
+import { SESSION_COOKIE, verifyToken } from "../lib/jwtAuth.js";
 
 /**
- * Auth middleware — accepts two credential types:
- *
- *  1. Bearer <BOT_API_TOKEN>  — machine auth (MT5 bridge).
- *     Resolves to userId="_system".
- *
- *  2. Bearer <JWT>            — human user auth (dashboard login).
- *     Resolves to the userId embedded in the token payload.
- *     Also validates that the user account is still active in the DB.
+ * Session auth. The dashboard sends an httpOnly cookie; scripts may send `Authorization: Bearer`.
+ * Every request re-checks the account in the database, so suspending a user or bumping
+ * their token version takes effect immediately.
  */
-export function requireAuth(req: Request, res: Response, next: NextFunction): void {
+export async function requireAuth(req: Request, res: Response, next: NextFunction): Promise<void> {
   const header = req.headers.authorization ?? "";
-  const token  = header.startsWith("Bearer ") ? header.slice(7).trim() : "";
-
+  const bearer = header.startsWith("Bearer ") ? header.slice(7).trim() : "";
+  const cookie = (req.cookies as Record<string, string> | undefined)?.[SESSION_COOKIE] ?? "";
+  const token = bearer || cookie;
   if (!token) {
-    res.status(401).json({ ok: false, error: "Unauthorized — missing token." });
+    res.status(401).json({ ok: false, error: "Not signed in." });
     return;
   }
-
-  // ── Machine auth (MT5 bridge / server-to-server) ─────────────────────────
-  const machineToken = process.env["BOT_API_TOKEN"] ?? "changeme";
-  if (token === machineToken) {
-    req.userId   = "_system";
-    req.username = "system";
-    next();
-    return;
-  }
-
-  // ── JWT auth (human dashboard users) ─────────────────────────────────────
   const payload = verifyToken(token);
   if (!payload) {
-    res.status(401).json({ ok: false, error: "Unauthorized — invalid or expired token." });
+    res.status(401).json({ ok: false, error: "Session expired. Sign in again." });
     return;
   }
+  try {
+    const [user] = await db
+      .select({ id: usersTable.id, username: usersTable.username, role: usersTable.role, active: usersTable.active, tokenVersion: usersTable.tokenVersion })
+      .from(usersTable)
+      .where(eq(usersTable.id, payload.userId));
+    if (!user || user.tokenVersion !== payload.tv) {
+      res.status(401).json({ ok: false, error: "Session expired. Sign in again." });
+      return;
+    }
+    if (!user.active) {
+      res.status(403).json({ ok: false, error: "Account suspended." });
+      return;
+    }
+    req.userId = user.id;
+    req.username = user.username;
+    req.role = user.role;
+    req.authVia = bearer ? "bearer" : "cookie";
+    next();
+  } catch (err) {
+    next(err);
+  }
+}
 
-  // Verify the account still exists and is active in the DB.
-  // This catches suspended accounts that still hold a valid JWT.
-  db.select({ id: usersTable.id, active: usersTable.active })
-    .from(usersTable)
-    .where(eq(usersTable.id, payload.userId))
-    .then(([user]) => {
-      if (!user) {
-        res.status(401).json({ ok: false, error: "Unauthorized — account not found." });
-        return;
-      }
-      if (!user.active) {
-        res.status(403).json({ ok: false, error: "Account suspended. Contact an administrator." });
-        return;
-      }
-      req.userId   = payload.userId;
-      req.username = payload.username;
-      next();
-    })
-    .catch(() => {
-      res.status(500).json({ ok: false, error: "Auth check failed." });
-    });
+export function requireRole(role: "admin") {
+  return (req: Request, res: Response, next: NextFunction): void => {
+    if (req.role !== role) {
+      res.status(403).json({ ok: false, error: "Admin access required." });
+      return;
+    }
+    next();
+  };
+}
+
+export const requireAdmin = [requireAuth, requireRole("admin")];
+
+/**
+ * CSRF guard for cookie sessions: state-changing requests must carry `X-Requested-With`,
+ * which a cross-site form cannot set. Combined with SameSite=Strict cookies.
+ */
+export function csrfGuard(req: Request, res: Response, next: NextFunction): void {
+  const safe = req.method === "GET" || req.method === "HEAD" || req.method === "OPTIONS";
+  const hasCookie = Boolean((req.cookies as Record<string, string> | undefined)?.[SESSION_COOKIE]);
+  if (!safe && hasCookie && !req.headers.authorization && !req.headers["x-requested-with"]) {
+    res.status(403).json({ ok: false, error: "Missing X-Requested-With header." });
+    return;
+  }
+  next();
 }
