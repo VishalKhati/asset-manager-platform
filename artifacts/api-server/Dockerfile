@@ -2,7 +2,7 @@
 #   docker build -f artifacts/api-server/Dockerfile -t amp-api .
 # The esbuild bundle is self-contained (no node_modules at runtime) and carries the SQL migrations.
 
-FROM node:22-bookworm-slim AS build
+FROM node:26-bookworm-slim AS build
 RUN corepack enable
 WORKDIR /repo
 COPY . .
@@ -10,7 +10,7 @@ RUN pnpm install --frozen-lockfile --filter "@workspace/api-server..." \
  && pnpm --filter @workspace/api-server run typecheck \
  && pnpm --filter @workspace/api-server run build
 
-FROM node:22-bookworm-slim
+FROM node:26-bookworm-slim
 ENV NODE_ENV=production
 WORKDIR /app
 COPY --from=build --chown=node:node /repo/artifacts/api-server/dist ./dist
