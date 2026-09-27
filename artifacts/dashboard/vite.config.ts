@@ -3,13 +3,11 @@ import vue from "@vitejs/plugin-vue";
 import tailwindcss from "@tailwindcss/vite";
 import path from "path";
 
-const rawPort = process.env.PORT;
-if (!rawPort) throw new Error("PORT environment variable is required but was not provided.");
-const port = Number(rawPort);
-if (Number.isNaN(port) || port <= 0) throw new Error(`Invalid PORT value: "${rawPort}"`);
-
-const basePath = process.env.BASE_PATH;
-if (!basePath) throw new Error("BASE_PATH environment variable is required but was not provided.");
+const port = Number(process.env.PORT ?? 5173);
+if (!Number.isInteger(port) || port < 1 || port > 65535) {
+  throw new Error("PORT must be an integer between 1 and 65535");
+}
+const basePath = process.env.BASE_PATH ?? "/";
 
 export default defineConfig({
   base: basePath,
@@ -26,11 +24,11 @@ export default defineConfig({
     port,
     strictPort: true,
     host: "0.0.0.0",
-    allowedHosts: true,
+    // Local development: forward API calls (including the event stream) to the API process.
+    proxy: { "/api": { target: process.env.API_URL ?? "http://localhost:8080", changeOrigin: false } },
   },
   preview: {
     port,
     host: "0.0.0.0",
-    allowedHosts: true,
   },
 });

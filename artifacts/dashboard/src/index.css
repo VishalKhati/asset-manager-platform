@@ -21,7 +21,8 @@
   --text-4:       #1e3050;
 }
 
-* { box-sizing: border-box; margin: 0; padding: 0; }
+/* Tailwind's preflight already resets margins and padding. An unlayered reset here would
+   override every spacing utility, because unlayered CSS beats @layer utilities. */
 
 body {
   font-family: 'Inter', system-ui, sans-serif;
@@ -81,6 +82,8 @@ code, .mono, .font-mono { font-family: 'JetBrains Mono', 'Fira Code', monospace;
 .pulse-green  { animation: pulse-green 2s ease-in-out infinite; }
 .pulse-red    { animation: pulse-red   2s ease-in-out infinite; }
 
+/* Component classes live in a layer so Tailwind utilities (text-right, p-4, …) can override them. */
+@layer components {
 /* ── Card base ─────────────────────────────── */
 .card {
   background: var(--bg-card);
@@ -136,3 +139,27 @@ code, .mono, .font-mono { font-family: 'JetBrains Mono', 'Fira Code', monospace;
 .slide-fade-leave-active { transition: all 0.15s ease; }
 .slide-fade-enter-from { opacity: 0; transform: translateX(-8px); }
 .slide-fade-leave-to   { opacity: 0; transform: translateX(8px); }
+
+/* ── Controls ──────────────────────────────── */
+.btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 14px; border-radius: 9px; font-size: 13px; font-weight: 600;
+  border: 1px solid var(--border); color: var(--text-1); background: var(--bg-card-2);
+  cursor: pointer; transition: all 0.15s;
+}
+.btn:hover:not(:disabled) { border-color: #2d4060; background: var(--bg-hover); }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-gold { background: linear-gradient(135deg, #f5c142, #d4a017); color: #1a1200; border-color: transparent; }
+.btn-gold:hover:not(:disabled) { filter: brightness(1.08); background: linear-gradient(135deg, #f5c142, #d4a017); }
+.btn-danger { color: #fca5a5; border-color: rgba(239, 68, 68, 0.35); }
+.input {
+  width: 100%; padding: 8px 12px; border-radius: 8px; font-size: 13px; outline: none;
+  background: #0a0e1a; border: 1px solid #1e2d4a; color: #e2e8f0;
+}
+.input:focus { border-color: var(--gold-dim); }
+.pill { display: inline-block; padding: 2px 8px; border-radius: 99px; font-size: 11px; font-weight: 600; }
+.muted { color: var(--text-2); }
+.faint { color: var(--text-3); }
+.num { font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums; }
+
+}

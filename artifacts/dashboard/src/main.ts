@@ -2,51 +2,51 @@ import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 import { createRouter, createWebHistory } from 'vue-router'
 import App from './App.vue'
+import TrackRecord from './views/TrackRecord.vue'
+import { setUnauthorizedHandler } from './lib/api'
+import { useAuthStore } from './stores/auth'
 import './index.css'
 
-import Dashboard     from './views/Dashboard.vue'
-import History        from './views/History.vue'
-import Logs           from './views/Logs.vue'
-import Config         from './views/Config.vue'
-import Backtest       from './views/Backtest.vue'
-import Login          from './views/Login.vue'
-import MT5Setup       from './views/MT5Setup.vue'
-import Admin          from './views/Admin.vue'
-import Notifications  from './views/Notifications.vue'
-import Alerts         from './views/Alerts.vue'
-
-const base = import.meta.env.BASE_URL
-
 const router = createRouter({
-  history: createWebHistory(base),
+  history: createWebHistory(import.meta.env.BASE_URL),
+  scrollBehavior: () => ({ top: 0 }),
   routes: [
-    { path: '/login',     component: Login,    meta: { public: true } },
-    { path: '/',          component: Dashboard },
-    { path: '/history',   component: History   },
-    { path: '/backtest',  component: Backtest  },
-    { path: '/logs',      component: Logs      },
-    { path: '/config',    component: Config    },
-    { path: '/mt5-setup',      component: MT5Setup       },
-    { path: '/notifications',  component: Notifications  },
-    { path: '/alerts',         component: Alerts         },
-    { path: '/admin',          component: Admin,    meta: { adminOnly: true } },
-    { path: '/:pathMatch(.*)*', component: () => import('./views/NotFound.vue') },
+    // Public
+    { path: '/', component: TrackRecord, meta: { title: 'Track record' } },
+    { path: '/signals/:no', component: () => import('./views/SignalDetail.vue'), meta: { title: 'Signal' } },
+    { path: '/login', component: () => import('./views/Login.vue'), meta: { title: 'Sign in', guestOnly: true } },
+    // Operator
+    { path: '/ops', component: () => import('./views/ops/Overview.vue'), meta: { auth: true, title: 'Overview' } },
+    { path: '/ops/signals', component: () => import('./views/ops/Signals.vue'), meta: { auth: true, title: 'Signals' } },
+    { path: '/ops/evaluations', component: () => import('./views/ops/Evaluations.vue'), meta: { auth: true, title: 'Why no signal' } },
+    { path: '/ops/strategy', component: () => import('./views/ops/Strategy.vue'), meta: { auth: true, title: 'Strategy' } },
+    { path: '/ops/research', component: () => import('./views/ops/Research.vue'), meta: { auth: true, title: 'Research' } },
+    { path: '/ops/alerts', component: () => import('./views/Alerts.vue'), meta: { auth: true, title: 'Alerts' } },
+    { path: '/ops/users', component: () => import('./views/ops/Users.vue'), meta: { auth: true, admin: true, title: 'Users' } },
+    { path: '/:pathMatch(.*)*', component: () => import('./views/NotFound.vue'), meta: { title: 'Not found' } },
   ],
-})
-
-// Auth + admin guard
-router.beforeEach((to) => {
-  const isAuth   = !!(localStorage.getItem('smc_jwt') && localStorage.getItem('smc_user'))
-  const userJson = localStorage.getItem('smc_user')
-  const role     = userJson ? (() => { try { return JSON.parse(userJson)?.role } catch { return null } })() : null
-
-  if (to.meta.public)    return isAuth ? '/' : true
-  if (!isAuth)           return '/login'
-  if (to.meta.adminOnly && role !== 'admin') return '/'
-  return true
 })
 
 const app = createApp(App)
 app.use(createPinia())
+const auth = useAuthStore()
+
+router.beforeEach(async (to) => {
+  if (!auth.checked) await auth.refresh()
+  if (to.meta['auth'] && !auth.isAuthenticated) return { path: '/login', query: { next: to.fullPath } }
+  if (to.meta['admin'] && !auth.isAdmin) return '/ops'
+  if (to.meta['guestOnly'] && auth.isAuthenticated) return '/ops'
+  return true
+})
+router.afterEach((to) => {
+  document.title = `${String(to.meta['title'] ?? '')} · Gold Signals`
+})
+
+// Any 401 from an operator request means the session ended: go to sign-in.
+setUnauthorizedHandler(() => {
+  auth.clear()
+  if (router.currentRoute.value.meta['auth']) void router.push({ path: '/login', query: { next: router.currentRoute.value.fullPath } })
+})
+
 app.use(router)
 app.mount('#app')
