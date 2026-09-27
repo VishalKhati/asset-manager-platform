@@ -1,0 +1,11 @@
+**/node_modules
+**/dist
+**/.venv
+.git
+research/data
+research/reports/*.svg
+**/__pycache__
+**/*.tsbuildinfo
+.env
+**/.env
+deploy/backups

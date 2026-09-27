@@ -1,0 +1,39 @@
+# Serves the SPA, proxies the API, and keeps internal endpoints off the public internet.
+# SITE_ADDRESS: your domain (automatic HTTPS) or ":80" behind another proxy.
+{$SITE_ADDRESS::80} {
+	encode zstd gzip
+
+	# The MT5 feeder reaches ingest over Tailscale only (100.64.0.0/10 is the tailnet range).
+	@ingest_public {
+		path /api/ingest/*
+		not remote_ip {$INGEST_ALLOWED_CIDRS:100.64.0.0/10 127.0.0.1/8}
+	}
+	respond @ingest_public 404
+
+	# Metrics are scraped on the internal Docker network, never through Caddy.
+	respond /api/metrics 404
+
+	handle /api/* {
+		reverse_proxy api:8080 {
+			# Server-sent events must not be buffered.
+			flush_interval -1
+		}
+	}
+
+	handle {
+		root * /srv
+		@assets path /assets/*
+		header @assets Cache-Control "public, max-age=31536000, immutable"
+		try_files {path} /index.html
+		file_server
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+		-Server
+	}
+}

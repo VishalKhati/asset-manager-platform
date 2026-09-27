@@ -1,0 +1,106 @@
+# Production stack for one Linux VPS. Images are built by GitHub Actions and pulled from GHCR.
+#   cp .env.example .env   # fill in secrets, chmod 600 .env
+#   docker compose up -d
+name: gold-signals
+
+x-app: &app
+  image: ghcr.io/${GHCR_OWNER:-vishalkhati}/amp-api:${IMAGE_TAG:-main}
+  env_file: .env
+  environment:
+    NODE_ENV: production
+    DATABASE_URL: postgres://${POSTGRES_USER:-amp}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-amp}
+  restart: unless-stopped
+  logging: &logging
+    driver: json-file
+    options: { max-size: "10m", max-file: "5" }
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-amp}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-amp}
+    volumes: [pgdata:/var/lib/postgresql/data]
+    shm_size: 256mb
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+    logging: *logging
+    # No ports: the database is only reachable on the internal network.
+
+  migrate:
+    <<: *app
+    command: ["node", "dist/cli.mjs", "migrate"]
+    restart: "no"
+    depends_on:
+      postgres: { condition: service_healthy }
+
+  api:
+    <<: *app
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+    mem_limit: 512m
+
+  engine:
+    <<: *app
+    command: ["node", "--enable-source-maps", "dist/engine.mjs"]
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:9464/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    mem_limit: 512m
+
+  web:
+    image: ghcr.io/${GHCR_OWNER:-vishalkhati}/amp-web:${IMAGE_TAG:-main}
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:-:80}
+      INGEST_ALLOWED_CIDRS: ${INGEST_ALLOWED_CIDRS:-100.64.0.0/10 127.0.0.1/8}
+    ports: ["80:80", "443:443"]
+    volumes: [caddy_data:/data, caddy_config:/config]
+    depends_on: [api]
+    restart: unless-stopped
+    logging: *logging
+
+  backup:
+    image: prodrigestivill/postgres-backup-local:16
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_DB: ${POSTGRES_DB:-amp}
+      POSTGRES_USER: ${POSTGRES_USER:-amp}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      SCHEDULE: "@daily"
+      BACKUP_KEEP_DAYS: 7
+      BACKUP_KEEP_WEEKS: 4
+      BACKUP_KEEP_MONTHS: 6
+    volumes: ["./backups:/backups"]
+    depends_on:
+      postgres: { condition: service_healthy }
+    restart: unless-stopped
+    logging: *logging
+
+  # Optional monitoring: docker compose --profile obs up -d
+  prometheus:
+    profiles: [obs]
+    image: prom/prometheus:v3.5.0
+    volumes: ["./prometheus.yml:/etc/prometheus/prometheus.yml:ro", "./metrics_token:/etc/prometheus/metrics_token:ro", "promdata:/prometheus"]
+    restart: unless-stopped
+  grafana:
+    profiles: [obs]
+    image: grafana/grafana:12.1.0
+    ports: ["127.0.0.1:3000:3000"]
+    volumes: ["grafanadata:/var/lib/grafana"]
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:
+  promdata:
+  grafanadata:

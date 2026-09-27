@@ -1,0 +1,43 @@
+name: Deploy
+
+# Manual deploy of an image tag that CI already built and pushed.
+# Needs the `production` environment with secrets DEPLOY_HOST, DEPLOY_USER, DEPLOY_SSH_KEY
+# (and optionally DEPLOY_PATH, default ~/gold-signals, which holds compose.yml and .env).
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Image tag to deploy (sha-xxxxxxx or main)"
+        required: true
+        default: main
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v5
+      - name: Configure SSH
+        run: |
+          install -m 700 -d ~/.ssh
+          echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts
+      - name: Copy stack definition
+        run: |
+          dir="${{ secrets.DEPLOY_PATH || '~/gold-signals' }}"
+          ssh "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" "mkdir -p $dir"
+          scp deploy/compose.yml deploy/Caddyfile deploy/prometheus.yml "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:$dir/"
+      - name: Pull and restart
+        run: |
+          dir="${{ secrets.DEPLOY_PATH || '~/gold-signals' }}"
+          ssh "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
+            "cd $dir && IMAGE_TAG=${{ inputs.tag }} docker compose pull && IMAGE_TAG=${{ inputs.tag }} docker compose up -d --remove-orphans"
+      - name: Smoke test
+        run: |
+          sleep 20
+          ssh "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
+            "curl -fsS http://localhost/api/healthz && curl -fsS http://localhost/api/public/summary > /dev/null"
