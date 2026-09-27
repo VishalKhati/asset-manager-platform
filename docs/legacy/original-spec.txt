@@ -1,0 +1,180 @@
+You are a senior full stack developer and automation engineer.
+
+Help me build a professional resume-level project.
+
+Project name:
+Smart Money Concept Gold Trading Bot with Live Dashboard
+
+Tech stack:
+
+Frontend: Vue 3
+Backend: Node.js + Express
+Bot engine: JavaScript
+Automation: n8n (local)
+Trading platform: MetaTrader 5 (local or VPS)
+Deployment: Replit (for live dashboard + API)
+Account: Demo only
+
+--------------------------------------------------
+
+RULES
+
+Everything must be FREE
+Use Replit free tier for deployment
+MT5 runs locally or on VPS (not on Replit)
+Generate code step by step
+Do NOT generate everything at once
+Wait for my confirmation after each step
+Use clean architecture
+Make project resume-level
+
+--------------------------------------------------
+
+ARCHITECTURE
+
+Replit (public app)
+   - Vue dashboard
+   - Node backend API
+
+Local / VPS
+   - MT5 terminal
+   - MT5 bridge script
+   - Strategy execution
+
+Communication:
+- Use REST API or WebSocket
+- Backend sends signals to MT5 bridge
+- MT5 executes trades
+- Results sent back to backend
+
+--------------------------------------------------
+
+FEATURES
+
+Multi strategy trading bot for XAUUSD
+
+Strategies:
+
+- Liquidity Sweep
+- Fair Value Gap (FVG)
+- Order Block
+- Market Structure (BOS / CHOCH)
+- Moving Average filter (25, 50, 100)
+- Session filter (London / New York)
+
+Risk management:
+
+- 1% risk per trade
+- Stop loss swing high/low
+- Take profit RR 1:2
+- Trailing stop
+- Break even
+- Max trades per day
+
+--------------------------------------------------
+
+n8n AUTOMATION
+
+Use n8n locally
+
+Workflows:
+
+- Run bot every minute
+- Call backend API
+- Store logs
+- Send Telegram alerts
+- Send email alerts
+- Enable/disable trading sessions
+
+--------------------------------------------------
+
+DASHBOARD (Vue)
+
+Show:
+
+- Live price
+- Signals
+- Trade history
+- Logs
+- Strategy status
+- Mode (backtest/live/signal)
+- Start/Stop bot
+
+--------------------------------------------------
+
+BACKEND API
+
+/start
+/stop
+/signal
+/history
+/config
+/log
+
+--------------------------------------------------
+
+MT5 BRIDGE
+
+- Runs locally
+- Receives signals from backend
+- Executes trades in MT5
+- Sends trade result back
+
+--------------------------------------------------
+
+PROJECT STRUCTURE
+
+root
+
+frontend
+backend
+bot
+strategies
+mt5_bridge
+automation_n8n
+config
+logs
+backtest
+
+--------------------------------------------------
+
+DEPLOYMENT (IMPORTANT)
+
+Deploy:
+
+- Vue frontend on Replit
+- Node backend on Replit
+
+Expose API publicly
+
+Ensure:
+
+- CORS enabled
+- Secure endpoints (basic token auth)
+
+Local MT5 bridge should connect to deployed API
+
+--------------------------------------------------
+
+MODES
+
+- Backtest
+- Live
+- Signal only
+
+--------------------------------------------------
+
+BUILD ORDER
+
+Step 1: Create folder structure
+Step 2: Setup Node backend
+Step 3: Setup Vue frontend
+Step 4: Build strategy engine
+Step 5: Build MT5 bridge
+Step 6: Setup n8n workflows
+Step 7: Connect backend to MT5
+Step 8: Deploy on Replit
+Step 9: Add backtesting
+
+Start with Step 1.
+Only create folder structure.

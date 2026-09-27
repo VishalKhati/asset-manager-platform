@@ -1,3 +1,5 @@
+> **Outdated: describes the old prototype.** This file is kept only until the Phase 0 cleanup deletes it (see [PLAN.md](PLAN.md)). The current system is documented in `README.md` and `docs/`.
+
 # SMC Bot — Workspace
 
 ## Overview

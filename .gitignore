@@ -54,3 +54,14 @@ __pycache__/
 .env
 .env.*
 !.env.example
+
+# Signal service
+deploy/.env
+deploy/backups/
+deploy/metrics_token
+research/data/
+research/.venv/
+feeder/.venv/
+*.sqlite3
+*.egg-info/
+.pgdata/
