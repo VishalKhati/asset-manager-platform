@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mt5feeder"
+version = "0.1.0"
+description = "Pushes closed XAUUSD M1 bars and spread from a MetaTrader 5 terminal to the signal service API"
+requires-python = ">=3.10"
+dependencies = []
+
+[project.optional-dependencies]
+# The MetaTrader5 package only exists for Windows. Tests use a fake terminal.
+mt5 = ["MetaTrader5>=5.0.45"]
+dev = ["pytest>=8", "ruff>=0.5"]
+
+[project.scripts]
+mt5feeder = "mt5feeder.main:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 135
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP"]
