@@ -1,0 +1,45 @@
+{
+  "emaFast": 20,
+  "emaSlow": 50,
+  "emaTrend": 200,
+  "stochK": 5,
+  "stochSmooth": 3,
+  "stochD": 3,
+  "stochLow": 20.0,
+  "stochHigh": 80.0,
+  "pullbackBars": 5,
+  "atrPeriod": 14,
+  "slAtrMult": 1.5,
+  "swingBars": 10,
+  "swingBufferAtr": 0.1,
+  "tp1R": 1.0,
+  "tp2R": 2.0,
+  "tp1Fraction": 0.0,
+  "validMin": 30,
+  "entryToleranceR": 0.25,
+  "maxHoldMin": 240,
+  "sessions": [
+    {
+      "tz": "Europe/London",
+      "start": "07:00",
+      "end": "16:00"
+    },
+    {
+      "tz": "America/New_York",
+      "start": "08:00",
+      "end": "16:00"
+    }
+  ],
+  "fridayCutoffUtc": "20:00",
+  "fridayExitUtc": "20:45",
+  "newsBlackoutMin": 15,
+  "maxSpread": 1.0,
+  "maxSpreadAtrFrac": 0.25,
+  "atrMinBps": 1.5,
+  "atrMaxBps": 30.0,
+  "cooldownAfterLossMin": 60,
+  "commission": 0.06,
+  "slippage": 0.05,
+  "warmupM5": 150,
+  "warmupM15": 250
+}
