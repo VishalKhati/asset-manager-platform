@@ -6,7 +6,9 @@ FROM node:22-bookworm-slim AS build
 RUN corepack enable
 WORKDIR /repo
 COPY . .
+# Shared libraries' type declarations must exist before the API typechecks against them.
 RUN pnpm install --frozen-lockfile --filter "@workspace/api-server..." \
+ && pnpm run typecheck:libs \
  && pnpm --filter @workspace/api-server run typecheck \
  && pnpm --filter @workspace/api-server run build
 
