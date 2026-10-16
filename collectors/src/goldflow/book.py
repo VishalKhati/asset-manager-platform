@@ -22,7 +22,9 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 log = logging.getLogger("goldflow.book")
-STREAM = "wss://fstream.binance.com/stream?streams=xauusdt@depth20@500ms/xauusdt@aggTrade"
+# Binance serves order-book streams on the root path and trade streams under /market (2026).
+DEPTH_STREAM = "wss://fstream.binance.com/stream?streams=xauusdt@depth20@500ms"
+TRADE_STREAM = "wss://fstream.binance.com/market/stream?streams=xauusdt@aggTrade"
 BUCKET = 0.5
 
 
@@ -107,26 +109,34 @@ class DailyWriter:
                 f.write(",".join(str(x) for x in r) + "\n")
 
 
-async def record(out_dir: Path) -> None:
+async def _consume(url: str, handle) -> None:
     import websockets  # imported lazily so the pure parts are testable without it
 
-    heat, tape = MinuteHeatmap(), MinuteTape()
-    hw = DailyWriter(out_dir, "heatmap", "minute,side,bucket,avg_size")
-    tw = DailyWriter(out_dir, "tape", "minute,o,h,l,c,volume,buy,sell")
     backoff = 1
     while True:
         try:
-            async with websockets.connect(STREAM, ping_interval=20, max_size=2**22) as ws:
-                log.info("connected to %s", STREAM)
+            async with websockets.connect(url, ping_interval=20, max_size=2**22) as ws:
+                log.info("connected to %s", url)
                 backoff = 1
                 async for raw in ws:
-                    msg = json.loads(raw)
-                    data = msg.get("data", {})
-                    if msg.get("stream", "").endswith("depth20@500ms"):
-                        hw.write(heat.add(int(data["E"]), data["b"], data["a"]))
-                    elif data.get("e") == "aggTrade":
-                        tw.write(tape.add(int(data["T"]), float(data["p"]), float(data["q"]), bool(data["m"])))
+                    handle(json.loads(raw).get("data", {}))
         except Exception as err:  # reconnect on any network error
-            log.warning("stream error: %s; reconnecting in %ss", err, backoff)
+            log.warning("stream %s error: %s; reconnecting in %ss", url, err, backoff)
             await asyncio.sleep(backoff)
             backoff = min(backoff * 2, 60)
+
+
+async def record(out_dir: Path) -> None:
+    heat, tape = MinuteHeatmap(), MinuteTape()
+    hw = DailyWriter(out_dir, "heatmap", "minute,side,bucket,avg_size")
+    tw = DailyWriter(out_dir, "tape", "minute,o,h,l,c,volume,buy,sell")
+
+    def on_depth(d: dict) -> None:
+        if "b" in d:
+            hw.write(heat.add(int(d["E"]), d["b"], d["a"]))
+
+    def on_trade(d: dict) -> None:
+        if d.get("e") == "aggTrade":
+            tw.write(tape.add(int(d["T"]), float(d["p"]), float(d["q"]), bool(d["m"])))
+
+    await asyncio.gather(_consume(DEPTH_STREAM, on_depth), _consume(TRADE_STREAM, on_trade))
