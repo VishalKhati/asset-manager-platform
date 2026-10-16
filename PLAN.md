@@ -85,6 +85,8 @@ Keep `ConfigField.vue`, `Section.vue`, `StatCard.vue` and `ToggleField.vue`: the
 - [x] Hypothesis v3 `delta_va_fade` (order flow on the free Binance gold-perp tape) pre-registered (a42ecde) before any data download.
 - **Gate 1 result v3 (2026-10-16): FAIL, inconclusive.** Out of sample 76 trades (needed 100), expectancy +0.040R (95% CI −0.262 to +0.385R), PF 1.07; independent Bybit holdout +0.093R over 51 trades. First non-negative result, but far too few trades to tell. Report: `research/reports/WALKFORWARD_DELTA_VA.md`.
 - [x] Free order-flow collectors (`collectors/`): live Binance gold order-book heatmap + tape, daily GLD gamma exposure.
+- [x] Hypothesis v4 `macro_trend` (trend + real yields + dollar, daily) pre-registered (2a57f34).
+- **Gate 1 result v4 (2026-10-16): FAIL.** OOS 2012–2025 Sharpe 0.27 (needed 0.5); halves drawdown vs buy-and-hold (−24% vs −48%) but no extra return; 2026 holdout −11.7%. Report: `research/reports/WALKFORWARD_MACRO.md`. Key lesson: MT5 CFD swaps cost ~4%+ a year on long gold, which makes holding strategies hard to win with.
 - [ ] Decide: run the frozen v3 rules forward in `shadow` mode to collect new out-of-sample trades (needs the live tape wired into the engine), and/or deploy the collectors to the server so history keeps growing.
 
 **GATE 1 (go/no-go):** out-of-sample ≥ 200 trades, profit factor > 1.3, expectancy > 0.2R **net of costs**, max drawdown ≤ 15R, Monte Carlo 95th-percentile drawdown ≤ 20R. Holdout expectancy > 0. Every tried variant goes in `research/reports/GRAVEYARD.md`.
