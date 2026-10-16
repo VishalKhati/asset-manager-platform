@@ -32,6 +32,8 @@ def main(argv: list[str] | None = None) -> None:
     of = sub.add_parser("orderflow-build", help="raw trade files -> order-flow M1 bars + session profiles")
     of.add_argument("--venue", choices=["binance", "bybit"], required=True)
     sub.add_parser("walkforward-v3", help="pre-registered v3 (delta_va_fade) walk-forward")
+    mv = sub.add_parser("walkforward-v4", help="pre-registered v4 (macro_trend) walk-forward")
+    mv.add_argument("--refresh", action="store_true", help="re-download GLD and FRED data")
     args = ap.parse_args(argv)
 
     if args.cmd == "build-data":
@@ -75,6 +77,12 @@ def main(argv: list[str] | None = None) -> None:
         (REPORTS / "WALKFORWARD_DELTA_VA.md").write_text(render(res))
         print(f"gate pass={res['gate']['pass']} oos={res['oos']['trades']} trades, "
               f"exp={res['oos']['expectancyR']:.3f}R in {time.time() - t0:.0f}s")
+    elif args.cmd == "walkforward-v4":
+        from .macro import main_run
+
+        res = main_run(ROOT / "data" / "macro", REPORTS, args.refresh)
+        o = res["oos"]
+        print(f"gate pass={res['gate']['pass']} oos sharpe={o['sharpe']:.2f} vs buy-hold {res['oosBuyHoldFinanced']['sharpe']:.2f}")
     elif args.cmd == "walkforward":
         from .report import equity_svg, render_markdown
         from .walkforward import walk_forward
