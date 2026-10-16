@@ -7,6 +7,7 @@
  * GET /api/public/signals/:publicNo/chart  M5 candles and EMAs around the signal
  * GET /api/public/chart                 recent M5 candles (?hours=, max 48)
  * GET /api/public/backtest              latest public walk-forward report summary
+ * GET /api/public/backtests             all public research reports (summaries)
  */
 
 import { Router } from "express";
@@ -155,6 +156,21 @@ router.get("/chart", async (req, res, next) => {
     // Public chart is delayed by PUBLIC_DELAY_MIN so it never leaks a hidden open signal.
     const cutoff = to - config.PUBLIC_DELAY_MIN * 60;
     res.json({ ok: true, bars: bars.filter((b) => b.t + 300 <= cutoff) });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/** Every public research report, newest first (summaries only): the full, honest research record. */
+router.get("/backtests", async (_req, res, next) => {
+  try {
+    const rows = await db
+      .select({ id: backtestRunsTable.id, strategyId: backtestRunsTable.strategyId, strategyVersion: backtestRunsTable.strategyVersion, summary: backtestRunsTable.summary, createdAt: backtestRunsTable.createdAt })
+      .from(backtestRunsTable)
+      .where(eq(backtestRunsTable.isPublic, true))
+      .orderBy(desc(backtestRunsTable.id))
+      .limit(50);
+    res.json({ ok: true, backtests: rows });
   } catch (err) {
     next(err);
   }
