@@ -85,6 +85,14 @@ services:
     restart: unless-stopped
     logging: *logging
 
+  # Free gold order-flow collectors: live Binance order book + tape, daily GLD gamma exposure.
+  collectors:
+    image: ghcr.io/${GHCR_OWNER:-vishalkhati}/amp-collectors:${IMAGE_TAG:-main}
+    volumes: ["goldflow:/data"]
+    restart: unless-stopped
+    logging: *logging
+    mem_limit: 256m
+
   # Optional monitoring: docker compose --profile obs up -d
   prometheus:
     profiles: [obs]
@@ -99,6 +107,7 @@ services:
     restart: unless-stopped
 
 volumes:
+  goldflow:
   pgdata:
   caddy_data:
   caddy_config:
