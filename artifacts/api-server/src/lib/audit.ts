@@ -19,7 +19,9 @@ export type AuditAction =
   | "engine.pause"
   | "engine.resume"
   | "config.activate"
-  | "backtest.upload";
+  | "backtest.upload"
+  | "account.update"
+  | "trade.approve";
 
 export interface AuditParams {
   actorId:        string;

@@ -20,6 +20,7 @@ import { parseQuery } from "../middlewares/validate.js";
 import { eventsFor, listSignals, signalStats, toView } from "../services/signals.js";
 import { m5Chart } from "../services/chart.js";
 import { engineStatus } from "../engine/control.js";
+import { signalOdds } from "../services/tradeTools.js";
 
 const router = Router();
 const nowS = () => Math.floor(Date.now() / 1000);
@@ -139,6 +140,20 @@ router.get("/signals/:publicNo/chart", async (req, res, next) => {
     const from = s.t - 8 * 3600;
     const to = Math.min((s.closedT ?? nowS()) + 2 * 3600, nowS());
     res.json({ ok: true, bars: await m5Chart(config.SYMBOL, from, to, params) });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/** Time Machine odds for a published signal (no account details). */
+router.get("/signals/:publicNo/odds", async (req, res, next) => {
+  try {
+    const s = await findPublic(String(req.params["publicNo"]));
+    if (!s) {
+      res.status(404).json({ ok: false, error: "Signal not found." });
+      return;
+    }
+    res.json({ ok: true, odds: await signalOdds(s) });
   } catch (err) {
     next(err);
   }

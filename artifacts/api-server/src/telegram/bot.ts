@@ -15,6 +15,7 @@ export interface CommandHandlers {
   health(): Promise<string>;
   last(): Promise<string>;
   mode(): Promise<string>;
+  approve(actor: string, publicNo: string): Promise<string>;
 }
 
 export function telegramApi(token: string): TelegramApi {
@@ -78,8 +79,13 @@ export function startCommandBot(token: string, adminIds: string[], handlers: Com
     const r = reply(await handlers.mode());
     await ctx.reply(r.text, r);
   });
+  bot.command("yes", async (ctx) => {
+    const no = (ctx.match || "").trim().toUpperCase();
+    const r = reply(no ? await handlers.approve(actor(ctx.from!.id), no) : "Usage: /yes XAU-000123");
+    await ctx.reply(r.text, r);
+  });
   bot.command(["start", "help"], async (ctx) => {
-    await ctx.reply("/pause [reason] · /resume · /stats [7d|30d|all] · /health · /last · /mode");
+    await ctx.reply("/pause [reason] · /resume · /stats [7d|30d|all] · /health · /last · /mode · /yes XAU-000123");
   });
   bot.catch((err) => log.warn({ err: err.error }, "telegram command failed"));
 
@@ -90,6 +96,7 @@ export function startCommandBot(token: string, adminIds: string[], handlers: Com
     { command: "health", description: "Feed, engine and queue status" },
     { command: "last", description: "Last 5 signals" },
     { command: "mode", description: "Publishing mode" },
+    { command: "yes", description: "Approve a ticket: /yes XAU-000123" },
   ];
   for (const id of adminIds) {
     bot.api.setMyCommands(commands, { scope: { type: "chat", chat_id: Number(id) } }).catch((err) => log.warn({ err }, "setMyCommands failed"));

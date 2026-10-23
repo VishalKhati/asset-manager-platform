@@ -16,6 +16,8 @@ import { pruneEvaluations, watchdogTick } from "./engine/watchdog.js";
 import { OutboxDispatcher } from "./telegram/outbox.js";
 import { startCommandBot, telegramApi } from "./telegram/bot.js";
 import { signalStats } from "./services/signals.js";
+import { approveTicket } from "./services/tradeTools.js";
+import { writeAudit } from "./lib/audit.js";
 
 const log = logger.child({ proc: "engine", symbol: config.SYMBOL });
 const nowS = () => Math.floor(Date.now() / 1000);
@@ -127,6 +129,14 @@ async function main(): Promise<void> {
             .join("\n");
         },
         mode: async () => `Mode: <b>${config.SIGNAL_MODE}</b>. Posting to ${signalChats().length} chat(s).`,
+        approve: async (actor, publicNo) => {
+          const [s] = await db.select().from(signalsTable).where(eq(signalsTable.publicNo, publicNo));
+          if (!s) return `No signal #${publicNo}.`;
+          const r = await approveTicket(s, actor, "telegram", nowS());
+          if (!r.ok) return `❌ ${r.error}${r.failed?.length ? "\n" + r.failed.join("\n") : ""}`;
+          writeAudit({ actorId: actor, actorUsername: actor, action: "trade.approve", targetId: publicNo, details: { lots: r.ticket.lots } });
+          return `✅ Approved #${publicNo}: ${s.direction === "long" ? "BUY" : "SELL"} ${r.ticket.lots} lots, stop ${s.sl.toFixed(2)}, TP2 ${s.tp2.toFixed(2)}. Place it in MT5 yourself; automatic execution is not built yet.`;
+        },
       },
       log,
     );

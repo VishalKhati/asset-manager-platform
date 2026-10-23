@@ -1,4 +1,6 @@
 import type { DbSignal, DbSignalEvent } from "@workspace/db";
+import type { TmResult } from "@workspace/strategy";
+import type { Ticket } from "../services/tradeTools.js";
 
 /** Telegram message bodies (HTML parse mode). Everything user-visible is escaped. */
 
@@ -84,4 +86,34 @@ export function renderUpdate(s: DbSignal, event: string): string {
     default:
       return `${base}${esc(event)}`;
   }
+}
+
+const pct = (x: number) => `${Math.round(x * 100)}%`;
+
+/** Private admin message: the exact order, its size, the PASS/BLOCK checks and the odds. */
+export function renderTicket(s: DbSignal, t: Ticket, odds: (TmResult & { sessions: number }) | null): string {
+  const lines = [
+    `🎫 <b>Ticket #${esc(s.publicNo)}</b> · ${s.direction === "long" ? "BUY" : "SELL"} ${esc(s.symbol)}`,
+    esc(t.order),
+    "",
+    `<b>Risk check: ${t.pass ? "PASS" : "BLOCK"}</b>`,
+    ...t.checks.map((c) => `${c.pass ? "✅" : "❌"} ${esc(c.label)}: ${esc(c.detail)}`),
+  ];
+  if (odds) {
+    const sim = odds.simulated;
+    lines.push(
+      "",
+      `<b>Odds</b> (${odds.paths.toLocaleString("en-US")} replays of the next 4 h from the last ${odds.sessions} sessions):`,
+      `TP2 ${pct(sim.tp2)} · TP1 then entry ${pct(sim.tp1_be)} · stop ${pct(sim.sl)} · time limit ${pct(sim.time)} · average ${odds.simExpectedR >= 0 ? "+" : ""}${odds.simExpectedR.toFixed(2)}R before costs`,
+      `Same time on ${odds.analog.days} real days: TP2 ${odds.analog.tp2} · TP1/entry ${odds.analog.tp1_be} · stop ${odds.analog.sl} · time ${odds.analog.time}`,
+      "<i>Odds measure risk, not edge.</i>",
+    );
+  }
+  lines.push(
+    "",
+    t.pass
+      ? `To approve this exact order reply <code>/yes ${esc(s.publicNo)}</code> before ${hhmm(s.validUntil)} UTC. Nothing is sent to MT5: place it yourself.`
+      : "Blocked: do not take this trade.",
+  );
+  return lines.join("\n");
 }

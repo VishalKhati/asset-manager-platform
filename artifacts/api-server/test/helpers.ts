@@ -23,6 +23,6 @@ export function readFixture<T>(name: string, file: string): T {
 
 /** Empty every table except the migration journal. */
 export async function resetDb(): Promise<void> {
-  await db.execute(sql`truncate table candles, feeders, news_events, strategy_configs, signals, signal_events, engine_evaluations,
+  await db.execute(sql`truncate table candles, feeders, news_events, strategy_configs, signals, signal_events, engine_evaluations, trade_tickets, account_settings,
     engine_state, notification_outbox, backtest_runs, users, audit_logs, price_alerts, notification_settings restart identity cascade`);
 }
