@@ -120,7 +120,7 @@ jobs:
           echo "api=ghcr.io/$owner/amp-api" >> "$GITHUB_OUTPUT"
           echo "web=ghcr.io/$owner/amp-web" >> "$GITHUB_OUTPUT"
           echo "sha=sha-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
-      - uses: docker/build-push-action@v6
+      - uses: docker/build-push-action@v7
         with:
           context: .
           file: artifacts/api-server/Dockerfile
@@ -128,7 +128,7 @@ jobs:
           tags: ${{ steps.meta.outputs.api }}:${{ steps.meta.outputs.sha }},${{ steps.meta.outputs.api }}:main
           cache-from: type=gha,scope=api
           cache-to: type=gha,mode=max,scope=api
-      - uses: docker/build-push-action@v6
+      - uses: docker/build-push-action@v7
         with:
           context: .
           file: artifacts/dashboard/Dockerfile
