@@ -65,3 +65,6 @@ feeder/.venv/
 *.sqlite3
 *.egg-info/
 .pgdata/
+
+# Wrangler local cache
+deploy/telegram-relay/.wrangler/

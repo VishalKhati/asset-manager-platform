@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "goldflow"
+version = "0.1.0"
+description = "Free gold order-flow collectors: live Binance XAUUSDT order book and tape, daily GLD gamma exposure"
+requires-python = ">=3.10"
+dependencies = ["websockets>=12"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "ruff>=0.5"]
+
+[project.scripts]
+goldflow = "goldflow.main:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 135
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP"]

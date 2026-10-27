@@ -24,10 +24,13 @@ import { parseQuery, validateBody } from "../middlewares/validate.js";
 import { engineStatus, setPaused } from "../engine/control.js";
 import { eventsFor, listSignals, signalStats, toView } from "../services/signals.js";
 import { m5Chart } from "../services/chart.js";
+import { approveTicket, buildTicket, getAccount, saveAccount, signalOdds } from "../services/tradeTools.js";
+import { accountSchema } from "@workspace/strategy";
+import { queueAdmin } from "../telegram/outbox.js";
 import { writeAudit } from "../lib/audit.js";
 
 const router = Router();
-router.use(["/engine", "/signals", "/strategy-configs", "/backtest-runs"], requireAuth);
+router.use(["/engine", "/signals", "/strategy-configs", "/backtest-runs", "/account"], requireAuth);
 const nowS = () => Math.floor(Date.now() / 1000);
 
 router.get("/engine/status", async (_req, res, next) => {
@@ -147,6 +150,83 @@ router.get("/signals/by-no/:publicNo/chart", async (req, res, next) => {
     const params = parseParams(cfg?.params ?? {});
     const nowS = Math.floor(Date.now() / 1000);
     res.json({ ok: true, bars: await m5Chart(config.SYMBOL, s.t - 8 * 3600, Math.min((s.closedT ?? nowS) + 2 * 3600, nowS), params) });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ---- Trade tools: sizing, risk check, odds, typed-YES approval ---------------------------
+
+async function bySignalNo(publicNo: string) {
+  const [s] = await db.select().from(signalsTable).where(eq(signalsTable.publicNo, publicNo));
+  return s;
+}
+
+router.get("/account", async (_req, res, next) => {
+  try {
+    res.json({ ok: true, account: await getAccount() });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.put("/account", ...requireAdmin, validateBody(accountSchema), async (req, res, next) => {
+  try {
+    await saveAccount(req.body, req.username);
+    writeAudit({ actorId: req.userId, actorUsername: req.username, action: "account.update" });
+    res.json({ ok: true, account: req.body });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get("/signals/by-no/:publicNo/ticket", async (req, res, next) => {
+  try {
+    const s = await bySignalNo(String(req.params["publicNo"]));
+    if (!s) {
+      res.status(404).json({ ok: false, error: "Signal not found." });
+      return;
+    }
+    res.json({ ok: true, ticket: await buildTicket(s, nowS()) });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get("/signals/by-no/:publicNo/odds", async (req, res, next) => {
+  try {
+    const s = await bySignalNo(String(req.params["publicNo"]));
+    if (!s) {
+      res.status(404).json({ ok: false, error: "Signal not found." });
+      return;
+    }
+    res.json({ ok: true, odds: await signalOdds(s) });
+  } catch (err) {
+    next(err);
+  }
+});
+
+const approveSchema = z.object({ confirm: z.string() });
+
+router.post("/signals/by-no/:publicNo/approve", ...requireAdmin, validateBody(approveSchema), async (req, res, next) => {
+  if ((req.body as z.infer<typeof approveSchema>).confirm.trim() !== "YES") {
+    res.status(400).json({ ok: false, error: 'Type YES (in capitals) to approve this exact order.' });
+    return;
+  }
+  try {
+    const s = await bySignalNo(String(req.params["publicNo"]));
+    if (!s) {
+      res.status(404).json({ ok: false, error: "Signal not found." });
+      return;
+    }
+    const result = await approveTicket(s, req.username, "dashboard", nowS());
+    if (!result.ok) {
+      res.status(result.status).json({ ok: false, error: result.error, failed: result.failed });
+      return;
+    }
+    writeAudit({ actorId: req.userId, actorUsername: req.username, action: "trade.approve", targetId: s.publicNo, details: { lots: result.ticket.lots } });
+    await queueAdmin(`✅ Approved #${s.publicNo}: ${s.direction === "long" ? "BUY" : "SELL"} ${result.ticket.lots} lots. Place it in MT5 yourself; automatic execution is not built yet.`);
+    res.status(201).json({ ok: true, ticket: result.ticket });
   } catch (err) {
     next(err);
   }

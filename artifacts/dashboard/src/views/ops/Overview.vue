@@ -48,9 +48,23 @@
     </section>
 
     <div class="grid md:grid-cols-3 gap-4">
-      <Section title="Live chart (M5, last 48 hours)" class="md:col-span-2">
-        <CandleChart :bars="bars" :signal="openSignal" :height="360" />
+      <Section title="Live chart · OANDA:XAUUSD (TradingView)" class="md:col-span-2">
+        <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1 mb-2">
+          <template v-if="quoteFresh && quote">
+            <span class="live-dot" aria-hidden="true" />
+            <span class="num text-2xl font-black" :style="{ color: quoteDir > 0 ? 'var(--green)' : quoteDir < 0 ? 'var(--red)' : 'var(--text-1)' }">
+              {{ ((quote.bid + quote.ask) / 2).toFixed(2) }}
+            </span>
+            <span class="num text-xs muted">bid {{ quote.bid.toFixed(2) }} · ask {{ quote.ask.toFixed(2) }}</span>
+            <span class="text-xs faint">{{ quote.source }} · display only, signals use closed M1 bars</span>
+          </template>
+          <span v-else class="text-xs faint">{{ status && !status.marketOpen ? 'Market closed: no live price.' : 'Waiting for the live price…' }}</span>
+        </div>
+        <TradingViewChart symbol="OANDA:XAUUSD" interval="5" :height="440" />
+        <!-- Own chart (feed bars + signal markers), hidden for now in favour of TradingView:
+        <CandleChart :bars="bars" :signal="openSignal" :history="signals" :live="quoteFresh ? quote : null" :height="380" />
         <p v-if="!bars.length" class="text-xs faint text-center">No bars in the last 48 hours. The market is closed or the feed has not started.</p>
+        -->
       </Section>
       <div class="space-y-4">
         <SignalCard v-if="latest" :signal="latest" />
@@ -92,12 +106,13 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import Section from '../../components/Section.vue'
-import CandleChart from '../../components/CandleChart.vue'
+// import CandleChart from '../../components/CandleChart.vue' // hidden for now; see the template
+import TradingViewChart from '../../components/TradingViewChart.vue'
 import SignalCard from '../../components/SignalCard.vue'
 import { api } from '../../lib/api'
 import { age, dateTime, pct, pf, r } from '../../lib/format'
 import { useSignalStream } from '../../lib/stream'
-import type { Bar, EngineStatus, Signal, Summary } from '../../lib/types'
+import type { Bar, EngineStatus, Quote, Signal, Summary } from '../../lib/types'
 import { useAuthStore } from '../../stores/auth'
 
 const auth = useAuthStore()
@@ -108,6 +123,14 @@ const stats = ref<Record<string, { summary: Summary }>>({})
 const error = ref('')
 const busy = ref(false)
 const latest = computed(() => signals.value[0] ?? null)
+const quote = ref<Quote | null>(null)
+const quoteDir = ref(0)
+const nowS = ref(Date.now() / 1000)
+const quoteFresh = computed(() => quote.value !== null && nowS.value - quote.value.t < 30)
+function onQuote(q: Quote): void {
+  if (quote.value) quoteDir.value = Math.sign(q.bid + q.ask - quote.value.bid - quote.value.ask) || quoteDir.value
+  quote.value = q
+}
 const openSignal = computed(() => (latest.value && ['pending', 'active', 'be'].includes(latest.value.state) ? latest.value : null))
 const fmtOffset = (m: number) => `${m >= 0 ? '+' : '−'}${Math.floor(Math.abs(m) / 60)}${Math.abs(m) % 60 ? `:${String(Math.abs(m) % 60).padStart(2, '0')}` : ''}`
 
@@ -116,7 +139,7 @@ async function load(): Promise<void> {
     const [s, c, l, st] = await Promise.all([
       api.get<{ status: EngineStatus }>('/engine/status'),
       api.get<{ bars: Bar[] }>('/public/chart?hours=48'),
-      api.get<{ signals: Signal[] }>('/signals?limit=5'),
+      api.get<{ signals: Signal[] }>('/signals?limit=30'),
       api.get<{ stats: Record<string, { summary: Summary }> }>('/signals/stats'),
     ])
     status.value = s.status
@@ -151,11 +174,37 @@ async function resume(): Promise<void> {
   }
 }
 
-const { connected } = useSignalStream('/api/stream', () => void load())
+const { connected } = useSignalStream('/api/stream', () => void load(), onQuote)
 let timer: ReturnType<typeof setInterval> | undefined
 onMounted(() => {
   void load()
-  timer = setInterval(load, 30_000) // status and chart; signals arrive over the stream
+  timer = setInterval(load, 30_000) // status and chart; signals and live prices arrive over the stream
+  clock = setInterval(() => (nowS.value = Date.now() / 1000), 5_000)
 })
-onBeforeUnmount(() => clearInterval(timer))
+let clock: ReturnType<typeof setInterval> | undefined
+onBeforeUnmount(() => {
+  clearInterval(timer)
+  clearInterval(clock)
+})
 </script>
+
+<style scoped>
+.live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 9999px;
+  background: var(--green);
+  align-self: center;
+  animation: pulse 1.6s ease-in-out infinite;
+}
+@keyframes pulse {
+  50% {
+    opacity: 0.25;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .live-dot {
+    animation: none;
+  }
+}
+</style>

@@ -29,6 +29,11 @@ def main(argv: list[str] | None = None) -> None:
     wf = sub.add_parser("walkforward", help="full walk-forward + holdout report")
     wf.add_argument("--processes", type=int, default=8)
     wf.add_argument("--strategy", choices=["ema_stoch_atr", "london_orb"], default="ema_stoch_atr")
+    of = sub.add_parser("orderflow-build", help="raw trade files -> order-flow M1 bars + session profiles")
+    of.add_argument("--venue", choices=["binance", "bybit"], required=True)
+    sub.add_parser("walkforward-v3", help="pre-registered v3 (delta_va_fade) walk-forward")
+    mv = sub.add_parser("walkforward-v4", help="pre-registered v4 (macro_trend) walk-forward")
+    mv.add_argument("--refresh", action="store_true", help="re-download GLD and FRED data")
     args = ap.parse_args(argv)
 
     if args.cmd == "build-data":
@@ -53,6 +58,31 @@ def main(argv: list[str] | None = None) -> None:
         res = backtest(df.reset_index(drop=True), p, use_news=not args.no_news)
         print(json.dumps({"stats": res["stats"], "reasons": res["reasons"], "seconds": round(time.time() - t0, 1)},
                          indent=2))
+    elif args.cmd == "orderflow-build":
+        from .orderflow import build
+
+        raw = ROOT / "data" / "orderflow" / args.venue
+        pattern = "XAUUSDT-aggTrades-*.zip" if args.venue == "binance" else "XAUTUSDT*.csv.gz"
+        print(json.dumps(build(raw.glob(pattern), args.venue, ROOT / "data" / "orderflow" / f"{args.venue}_bars"), indent=2))
+    elif args.cmd == "walkforward-v3":
+        from .report import equity_svg
+        from .wf_v3 import render, run_all
+
+        t0 = time.time()
+        base = ROOT / "data" / "orderflow"
+        res = run_all(base / "binance_bars", base / "bybit_bars", M1_PATH)
+        REPORTS.mkdir(exist_ok=True)
+        (REPORTS / "walkforward_delta_va.json").write_text(json.dumps(res, indent=2) + "\n")
+        (REPORTS / "walkforward_delta_va_equity.svg").write_text(equity_svg(res["oosEquityR"]))
+        (REPORTS / "WALKFORWARD_DELTA_VA.md").write_text(render(res))
+        print(f"gate pass={res['gate']['pass']} oos={res['oos']['trades']} trades, "
+              f"exp={res['oos']['expectancyR']:.3f}R in {time.time() - t0:.0f}s")
+    elif args.cmd == "walkforward-v4":
+        from .macro import main_run
+
+        res = main_run(ROOT / "data" / "macro", REPORTS, args.refresh)
+        o = res["oos"]
+        print(f"gate pass={res['gate']['pass']} oos sharpe={o['sharpe']:.2f} vs buy-hold {res['oosBuyHoldFinanced']['sharpe']:.2f}")
     elif args.cmd == "walkforward":
         from .report import equity_svg, render_markdown
         from .walkforward import walk_forward

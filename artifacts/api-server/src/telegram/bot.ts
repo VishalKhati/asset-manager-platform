@@ -15,10 +15,18 @@ export interface CommandHandlers {
   health(): Promise<string>;
   last(): Promise<string>;
   mode(): Promise<string>;
+  approve(actor: string, publicNo: string): Promise<string>;
 }
 
-export function telegramApi(token: string): TelegramApi {
-  const api = new Api(token);
+/** Optional relay in front of api.telegram.org, for networks that block Telegram. */
+export interface TelegramClientOptions {
+  apiRoot?: string;
+}
+
+const clientOpts = (o: TelegramClientOptions) => (o.apiRoot ? { apiRoot: o.apiRoot.replace(/\/+$/, "") } : undefined);
+
+export function telegramApi(token: string, o: TelegramClientOptions = {}): TelegramApi {
+  const api = new Api(token, clientOpts(o));
   api.config.use(autoRetry({ maxRetryAttempts: 3, maxDelaySeconds: 60 }));
   return {
     async sendMessage(chatId, text, replyTo) {
@@ -41,8 +49,8 @@ export function telegramApi(token: string): TelegramApi {
   };
 }
 
-export function startCommandBot(token: string, adminIds: string[], handlers: CommandHandlers, log: Logger): Bot {
-  const bot = new Bot(token);
+export function startCommandBot(token: string, adminIds: string[], handlers: CommandHandlers, log: Logger, o: TelegramClientOptions = {}): Bot {
+  const bot = new Bot(token, { client: clientOpts(o) });
   bot.api.config.use(autoRetry({ maxRetryAttempts: 3, maxDelaySeconds: 60 }));
   const admins = new Set(adminIds);
 
@@ -78,8 +86,13 @@ export function startCommandBot(token: string, adminIds: string[], handlers: Com
     const r = reply(await handlers.mode());
     await ctx.reply(r.text, r);
   });
+  bot.command("yes", async (ctx) => {
+    const no = (ctx.match || "").trim().toUpperCase();
+    const r = reply(no ? await handlers.approve(actor(ctx.from!.id), no) : "Usage: /yes XAU-000123");
+    await ctx.reply(r.text, r);
+  });
   bot.command(["start", "help"], async (ctx) => {
-    await ctx.reply("/pause [reason] · /resume · /stats [7d|30d|all] · /health · /last · /mode");
+    await ctx.reply("/pause [reason] · /resume · /stats [7d|30d|all] · /health · /last · /mode · /yes XAU-000123");
   });
   bot.catch((err) => log.warn({ err: err.error }, "telegram command failed"));
 
@@ -90,10 +103,21 @@ export function startCommandBot(token: string, adminIds: string[], handlers: Com
     { command: "health", description: "Feed, engine and queue status" },
     { command: "last", description: "Last 5 signals" },
     { command: "mode", description: "Publishing mode" },
+    { command: "yes", description: "Approve a ticket: /yes XAU-000123" },
   ];
   for (const id of adminIds) {
     bot.api.setMyCommands(commands, { scope: { type: "chat", chat_id: Number(id) } }).catch((err) => log.warn({ err }, "setMyCommands failed"));
   }
-  bot.start({ drop_pending_updates: true, onStart: () => log.info("telegram command bot started") }).catch((err) => log.error({ err }, "telegram bot stopped"));
+  // Keep listening for commands. A crash (for example 409 when something else polls with the
+  // same token) is retried after a minute instead of leaving commands dead until a restart.
+  const run = (): void => {
+    bot
+      .start({ drop_pending_updates: true, onStart: () => log.info("telegram command bot started") })
+      .catch((err) => {
+        log.error({ err }, "telegram command bot stopped; retrying in 60 s");
+        setTimeout(run, 60_000).unref();
+      });
+  };
+  run();
   return bot;
 }

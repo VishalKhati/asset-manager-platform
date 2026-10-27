@@ -22,6 +22,7 @@ const router = createRouter({
     { path: '/ops/strategy', component: () => import('./views/ops/Strategy.vue'), meta: { auth: true, title: 'Strategy' } },
     { path: '/ops/research', component: () => import('./views/ops/Research.vue'), meta: { auth: true, title: 'Research' } },
     { path: '/ops/alerts', component: () => import('./views/Alerts.vue'), meta: { auth: true, title: 'Alerts' } },
+    { path: '/ops/account', component: () => import('./views/ops/Account.vue'), meta: { auth: true, title: 'Account & risk' } },
     { path: '/ops/users', component: () => import('./views/ops/Users.vue'), meta: { auth: true, admin: true, title: 'Users' } },
     { path: '/:pathMatch(.*)*', component: () => import('./views/NotFound.vue'), meta: { title: 'Not found' } },
   ],

@@ -63,12 +63,21 @@
       </div>
     </Section>
 
-    <Section v-if="backtest" title="Research: walk-forward backtest (hypothetical)">
-      <p class="text-sm muted">
-        Out-of-sample {{ backtest.summary.oos.trades }} trades, expectancy {{ r(backtest.summary.oos.expectancyR, 3) }}, profit factor
-        {{ Number(backtest.summary.oos.profitFactor).toFixed(2) }}. Gate 1 {{ backtest.summary.gatePass ? 'passed' : 'not passed' }}.
+    <Section v-if="backtests.length" title="Research record: every strategy tested (hypothetical backtests)">
+      <p class="text-xs muted mb-3">
+        Each strategy's rules were published before it was tested, then run once on data it had never seen. A strategy is only traded after
+        it passes. So far none has.
       </p>
-      <p class="text-xs faint mt-1">{{ backtest.strategy }} · generated {{ backtest.summary.generatedAt ?? '' }}. Simulated results are not a promise of future results.</p>
+      <table class="data-table text-sm">
+        <thead><tr><th>Strategy</th><th>Result out of sample</th><th>Gate</th></tr></thead>
+        <tbody>
+          <tr v-for="b in backtests" :key="b.id">
+            <td>{{ b.strategyId }} v{{ b.strategyVersion }}</td>
+            <td class="num">{{ researchHeadline(b.summary.oos) }}</td>
+            <td :style="{ color: b.summary.gatePass ? 'var(--green)' : 'var(--red)' }">{{ b.summary.gatePass ? 'passed' : 'not passed' }}</td>
+          </tr>
+        </tbody>
+      </table>
     </Section>
 
     <footer class="text-xs faint border-t pt-4" style="border-color: var(--border)">
@@ -103,14 +112,16 @@ interface PublicSummary {
   feed: { healthy: boolean; marketOpen: boolean; lastBarAgeS: number | null }
 }
 interface Backtest {
-  strategy: string
-  summary: { gatePass: boolean; generatedAt?: string; oos: { trades: number; expectancyR: number; profitFactor: number | string } }
+  id: number
+  strategyId: string
+  strategyVersion: number
+  summary: { gatePass: boolean; oos?: { trades?: number; expectancyR?: number; sharpe?: number; cagr?: number } }
 }
 
 const router = useRouter()
 const summary = ref<PublicSummary | null>(null)
 const signals = ref<Signal[]>([])
-const backtest = ref<Backtest | null>(null)
+const backtests = ref<Backtest[]>([])
 const error = ref('')
 const more = ref(false)
 const all = computed(() => summary.value?.stats.all)
@@ -122,12 +133,12 @@ async function load(): Promise<void> {
     const [s, l, b] = await Promise.all([
       api.get<PublicSummary>('/public/summary'),
       api.get<{ signals: Signal[] }>('/public/signals?limit=50'),
-      api.get<{ backtest: Backtest | null }>('/public/backtest'),
+      api.get<{ backtests: Backtest[] }>('/public/backtests'),
     ])
     summary.value = s
     signals.value = l.signals
     more.value = l.signals.length === 50
-    backtest.value = b.backtest
+    backtests.value = b.backtests
     error.value = ''
   } catch (err) {
     error.value = err instanceof Error ? err.message : 'Could not load the track record.'
@@ -140,6 +151,13 @@ async function loadMore(): Promise<void> {
   const res = await api.get<{ signals: Signal[] }>(`/public/signals?limit=50&before=${last.id}`)
   signals.value.push(...res.signals)
   more.value = res.signals.length === 50
+}
+
+function researchHeadline(o?: Backtest['summary']['oos']): string {
+  if (!o) return '—'
+  if (typeof o.expectancyR === 'number') return `${o.trades ?? 0} trades, ${r(o.expectancyR, 3)} per trade`
+  if (typeof o.sharpe === 'number') return `Sharpe ${o.sharpe.toFixed(2)}, ${((o.cagr ?? 0) * 100).toFixed(1)}% a year`
+  return '—'
 }
 
 function open(s: Signal): void {

@@ -12,7 +12,8 @@ import { and, asc, count, eq, lte } from "drizzle-orm";
 import { db, notificationOutboxTable, signalEventsTable, signalsTable, strategyConfigsTable, type DbOutbox } from "@workspace/db";
 import type { Logger } from "pino";
 import { metrics } from "../lib/metrics.js";
-import { renderSignal, renderUpdate } from "./templates.js";
+import { renderSignal, renderTicket, renderUpdate } from "./templates.js";
+import { buildTicket, signalOdds } from "../services/tradeTools.js";
 
 export interface TelegramApi {
   sendMessage(chatId: string, text: string, replyTo?: number): Promise<{ message_id: number }>;
@@ -53,6 +54,7 @@ export class OutboxDispatcher {
     try {
       if (row.kind === "admin") await this.sendAdmin(String(row.payload["text"] ?? ""));
       else if (row.kind === "signal_new") await this.sendNew(row.signalId!);
+      else if (row.kind === "signal_ticket") await this.sendTicket(row.signalId!);
       else if (row.kind === "signal_update") await this.sendUpdate(row.signalId!, String(row.payload["event"] ?? ""));
       else throw new Error(`unknown outbox kind ${row.kind}`);
       await db.update(notificationOutboxTable).set({ status: "sent", sentAt: new Date(), attempts: row.attempts + 1, lastError: null }).where(eq(notificationOutboxTable.id, row.id));
@@ -97,6 +99,12 @@ export class OutboxDispatcher {
       await this.o.api!.editMessageText(chat, messageId, text);
       await this.o.api!.sendMessage(chat, renderUpdate(signal, event), messageId);
     }
+  }
+
+  private async sendTicket(signalId: number): Promise<void> {
+    const { signal } = await this.load(signalId);
+    const [ticket, odds] = await Promise.all([buildTicket(signal, Math.floor(Date.now() / 1000)), signalOdds(signal).catch(() => null)]);
+    await this.sendAdmin(renderTicket(signal, ticket, odds));
   }
 
   private async sendAdmin(text: string): Promise<void> {

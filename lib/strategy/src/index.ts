@@ -9,3 +9,5 @@ export * from "./stats";
 export * from "./strategy";
 export * from "./time";
 export * from "./tracker";
+export * from "./risk";
+export * from "./timemachine";

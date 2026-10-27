@@ -52,7 +52,17 @@ const schema = z.object({
   /** Open signals are hidden from public endpoints until this many minutes after they were posted. */
   PUBLIC_DELAY_MIN: z.coerce.number().int().min(0).default(0),
 
+  /**
+   * Live price for the dashboard chart (display only; signals never use it). A Binance-style
+   * bookTicker URL returning {bidPrice, askPrice}. Empty turns the live price off.
+   */
+  LIVE_QUOTE_URL: z.string().url().optional().or(z.literal("")),
+  LIVE_QUOTE_LABEL: z.string().default("Swissquote spot"),
+  LIVE_QUOTE_POLL_MS: z.coerce.number().int().min(250).max(60_000).default(1000),
+
   TELEGRAM_BOT_TOKEN: z.string().optional(),
+  /** Relay in front of https://api.telegram.org, for networks that block Telegram. Empty = direct. */
+  TELEGRAM_API_ROOT: z.string().url().optional().or(z.literal("")),
   TG_CHANNEL_PRIVATE_ID: z.string().optional(),
   TG_CHANNEL_PUBLIC_ID: z.string().optional(),
   TG_ADMIN_IDS: list,

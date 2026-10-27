@@ -46,6 +46,7 @@ const links = computed(() => {
       { to: '/ops/strategy', label: 'Strategy' },
       { to: '/ops/research', label: 'Research' },
       { to: '/ops/alerts', label: 'Alerts' },
+      { to: '/ops/account', label: 'Account & risk' },
     )
     if (auth.isAdmin) out.push({ to: '/ops/users', label: 'Users' })
   }

@@ -49,6 +49,14 @@ export interface Summary {
   outcomes: Record<string, number>
 }
 
+/** Live price pushed over the stream. Display only; signals never use it. */
+export interface Quote {
+  t: number
+  bid: number
+  ask: number
+  source: string
+}
+
 export interface Bar {
   t: number
   o: number

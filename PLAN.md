@@ -40,6 +40,9 @@ Verdict: **not deployable as a signal product.** The UI shell, auth, alerts and 
 | 2026-09-26 | **Default strategy:** EMA + Stochastic + ATR (spec in §4). |
 | 2026-09-26 | **Old folder:** `../../Asset-Manager` deleted. Its 24-commit Replit history is archived at `~/archives/asset-manager-replit-history.bundle`; the original build prompt is at `docs/legacy/original-spec.txt`. |
 | 2026-09-26 | **Claude tooling:** GitHub MCP + gh CLI, Playwright MCP, Context7 MCP, Postgres MCP (see §7). |
+| 2026-10-23 | **Live chart:** the API relays a Binance XAUUSDT perp bid/ask (about 1 per second) to signed-in dashboards over SSE, and the chart marks every recent signal with its result. Display only; the engine never reads it. Vantage's web terminal is behind a Cloudflare bot check, so demo-account automation needs MetaApi, a Windows MT5 terminal or an MQL5 EA (P10). |
+| 2026-10-23 | **Telegram (operator's choice):** forward-test signals post to the operator's **public** Telegram channel "XAU Trades with Drizzle" (`@xau_drizzle`), before Gates 2 and 3, accepting the track-record and legal risk in `docs/LEGAL.md` (disclaimer stays on every post; no fees, referrals or broker links). The home ISP (Tata Teleservices) resets connections to Telegram, so the engine sends through a Cloudflare Worker relay (`TELEGRAM_API_ROOT`). |
+| 2026-10-27 | **Feed switched to spot gold.** The Binance XAUUSDT perp traded about 9 points above spot, so posted levels did not match Vantage. Live bars now come from Swissquote public spot quotes (`mt5feeder.spot`, estimated bid = mid − 0.15, fixed 0.30 spread), and so does the chart's live price. Dukascopy was unavailable (HTTP 503), so the stored perp history (10-04 to 10-27 08:35 UTC) was shifted down by a constant 9.16 (measured basis 9.01 + 0.15) to keep the indicators continuous, and relabelled `mt5:binance-perp-shifted`. Signals XAU-000001 to XAU-000017 keep their original perp levels as posted. Their charts now sit 9.16 below those levels. From XAU-000018, levels are spot. |
 
 ## 3. Phases
 
@@ -82,7 +85,12 @@ Keep `ConfigField.vue`, `Section.vue`, `StatCard.vue` and `ToggleField.vue`: the
 - [x] Decision (2026-09-27, user): publish the result and test one new pre-registered hypothesis.
 - [x] Hypothesis v2 `london_orb` (London-open breakout of the Asian range) pre-registered in `research/HYPOTHESIS_V2.md` and committed before any run (ebb18ec).
 - **Gate 1 result v2 (2026-09-27): FAIL.** Out of sample 611 trades, expectancy −0.035R (95% CI −0.110 to +0.041R), PF 0.92, max DD 51R. Holdout +0.50R on only 13 trades. Report: `research/reports/WALKFORWARD_LONDON_ORB.md`.
-- [ ] Service runs in `shadow` mode as an engineering showcase. A v3 idea needs its own pre-registration file first (see GRAVEYARD for what has been tried).
+- [x] Hypothesis v3 `delta_va_fade` (order flow on the free Binance gold-perp tape) pre-registered (a42ecde) before any data download.
+- **Gate 1 result v3 (2026-10-16): FAIL, inconclusive.** Out of sample 76 trades (needed 100), expectancy +0.040R (95% CI −0.262 to +0.385R), PF 1.07; independent Bybit holdout +0.093R over 51 trades. First non-negative result, but far too few trades to tell. Report: `research/reports/WALKFORWARD_DELTA_VA.md`.
+- [x] Free order-flow collectors (`collectors/`): live Binance gold order-book heatmap + tape, daily GLD gamma exposure.
+- [x] Hypothesis v4 `macro_trend` (trend + real yields + dollar, daily) pre-registered (2a57f34).
+- **Gate 1 result v4 (2026-10-16): FAIL.** OOS 2012–2025 Sharpe 0.27 (needed 0.5); halves drawdown vs buy-and-hold (−24% vs −48%) but no extra return; 2026 holdout −11.7%. Report: `research/reports/WALKFORWARD_MACRO.md`. Key lesson: MT5 CFD swaps cost ~4%+ a year on long gold, which makes holding strategies hard to win with.
+- [ ] Decide: run the frozen v3 rules forward in `shadow` mode to collect new out-of-sample trades (needs the live tape wired into the engine), and/or deploy the collectors to the server so history keeps growing.
 
 **GATE 1 (go/no-go):** out-of-sample ≥ 200 trades, profit factor > 1.3, expectancy > 0.2R **net of costs**, max drawdown ≤ 15R, Monte Carlo 95th-percentile drawdown ≤ 20R. Holdout expectancy > 0. Every tried variant goes in `research/reports/GRAVEYARD.md`.
 If it fails: try only the pre-registered variants. If all fail, stop strategy work, publish the honest negative result, and run the product in `shadow`/forward mode as an infrastructure showcase until a new strategy passes.

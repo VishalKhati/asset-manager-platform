@@ -7,6 +7,7 @@
  * GET /api/public/signals/:publicNo/chart  M5 candles and EMAs around the signal
  * GET /api/public/chart                 recent M5 candles (?hours=, max 48)
  * GET /api/public/backtest              latest public walk-forward report summary
+ * GET /api/public/backtests             all public research reports (summaries)
  */
 
 import { Router } from "express";
@@ -19,6 +20,7 @@ import { parseQuery } from "../middlewares/validate.js";
 import { eventsFor, listSignals, signalStats, toView } from "../services/signals.js";
 import { m5Chart } from "../services/chart.js";
 import { engineStatus } from "../engine/control.js";
+import { signalOdds } from "../services/tradeTools.js";
 
 const router = Router();
 const nowS = () => Math.floor(Date.now() / 1000);
@@ -143,6 +145,20 @@ router.get("/signals/:publicNo/chart", async (req, res, next) => {
   }
 });
 
+/** Time Machine odds for a published signal (no account details). */
+router.get("/signals/:publicNo/odds", async (req, res, next) => {
+  try {
+    const s = await findPublic(String(req.params["publicNo"]));
+    if (!s) {
+      res.status(404).json({ ok: false, error: "Signal not found." });
+      return;
+    }
+    res.json({ ok: true, odds: await signalOdds(s) });
+  } catch (err) {
+    next(err);
+  }
+});
+
 const chartQuery = z.object({ hours: z.coerce.number().int().min(1).max(48).default(12) });
 
 router.get("/chart", async (req, res, next) => {
@@ -155,6 +171,21 @@ router.get("/chart", async (req, res, next) => {
     // Public chart is delayed by PUBLIC_DELAY_MIN so it never leaks a hidden open signal.
     const cutoff = to - config.PUBLIC_DELAY_MIN * 60;
     res.json({ ok: true, bars: bars.filter((b) => b.t + 300 <= cutoff) });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/** Every public research report, newest first (summaries only): the full, honest research record. */
+router.get("/backtests", async (_req, res, next) => {
+  try {
+    const rows = await db
+      .select({ id: backtestRunsTable.id, strategyId: backtestRunsTable.strategyId, strategyVersion: backtestRunsTable.strategyVersion, summary: backtestRunsTable.summary, createdAt: backtestRunsTable.createdAt })
+      .from(backtestRunsTable)
+      .where(eq(backtestRunsTable.isPublic, true))
+      .orderBy(desc(backtestRunsTable.id))
+      .limit(50);
+    res.json({ ok: true, backtests: rows });
   } catch (err) {
     next(err);
   }

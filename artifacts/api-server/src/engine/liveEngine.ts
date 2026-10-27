@@ -283,7 +283,11 @@ export class LiveEngine {
         await tx.update(signalsTable).set({ publicNo: publicNo(symbol, s.id) }).where(eq(signalsTable.id, s.id));
         await tx.insert(signalEventsTable).values({ signalId: s.id, type: "created", t: s.t, price: s.plan.entryRef });
         this.published.set(s.id, published);
-        if (published) await tx.insert(notificationOutboxTable).values({ kind: "signal_new", signalId: s.id, payload: {} });
+        if (published) {
+          await tx.insert(notificationOutboxTable).values({ kind: "signal_new", signalId: s.id, payload: {} });
+          // Private ticket for the admins: size, risk check and odds, approvable with /yes.
+          await tx.insert(notificationOutboxTable).values({ kind: "signal_ticket", signalId: s.id, payload: {} });
+        }
         changed.push({ signalId: s.id, type: "created" });
         metrics.signals.inc({ event: published ? "created" : "created_unpublished" });
       }

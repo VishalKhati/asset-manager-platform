@@ -4,3 +4,4 @@ export * from "./notifications";
 export * from "./alerts";
 export * from "./market";
 export * from "./signals";
+export * from "./trading";

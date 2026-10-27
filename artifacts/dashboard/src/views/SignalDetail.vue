@@ -10,6 +10,7 @@
         </Section>
         <div class="space-y-4">
           <SignalCard :signal="signal" />
+          <TradeTicket v-if="fromOps" :key="signal.publicNo" :public-no="signal.publicNo" />
           <Section title="Timeline">
             <ol class="text-sm space-y-2">
               <li v-for="e in signal.events" :key="e.id" class="flex justify-between gap-4">
@@ -18,6 +19,7 @@
               </li>
             </ol>
           </Section>
+          <OddsPanel :path="`${apiBase}/odds`" />
           <Section title="Numbers">
             <div class="grid grid-cols-2 gap-y-1 text-xs num">
               <span class="faint">Risk (1R)</span><span class="text-right">{{ signal.risk.toFixed(2) }}</span>
@@ -40,6 +42,8 @@ import { useRoute } from 'vue-router'
 import Section from '../components/Section.vue'
 import CandleChart from '../components/CandleChart.vue'
 import SignalCard from '../components/SignalCard.vue'
+import OddsPanel from '../components/OddsPanel.vue'
+import TradeTicket from '../components/TradeTicket.vue'
 import { api } from '../lib/api'
 import { dateTime, price, r } from '../lib/format'
 import type { Bar, Signal } from '../lib/types'
@@ -48,7 +52,13 @@ const route = useRoute()
 const signal = ref<Signal | null>(null)
 const bars = ref<Bar[]>([])
 const error = ref('')
-const backTo = computed(() => (route.query['from'] === 'ops' ? '/ops/signals' : '/'))
+const fromOps = computed(() => route.query['from'] === 'ops')
+const backTo = computed(() => (fromOps.value ? '/ops/signals' : '/'))
+// Operators can open unposted and shadow signals; the public endpoints only serve published ones.
+const apiBase = computed(() => {
+  const no = encodeURIComponent(String(route.params['no']))
+  return fromOps.value ? `/signals/by-no/${no}` : `/public/signals/${no}`
+})
 
 const LABELS: Record<string, string> = {
   created: 'Signal posted',
@@ -63,9 +73,7 @@ const LABELS: Record<string, string> = {
 const label = (t: string) => LABELS[t] ?? t
 
 async function load(): Promise<void> {
-  const no = encodeURIComponent(String(route.params['no']))
-  // Operators can open unposted and shadow signals; the public endpoints only serve published ones.
-  const base = route.query['from'] === 'ops' ? `/signals/by-no/${no}` : `/public/signals/${no}`
+  const base = apiBase.value
   try {
     const [s, c] = await Promise.all([api.get<{ signal: Signal }>(base), api.get<{ bars: Bar[] }>(`${base}/chart`)])
     signal.value = s.signal

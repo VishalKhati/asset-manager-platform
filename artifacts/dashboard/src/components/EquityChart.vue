@@ -6,11 +6,11 @@
 </template>
 
 <script setup lang="ts">
-/** Cumulative R, green above zero and red below. Input: [unix seconds, cumulative R] pairs. */
+/** Cumulative R (or % growth), green above zero and red below. Input: [unix seconds, value] pairs. */
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { BaselineSeries, ColorType, createChart, type IChartApi, type ISeriesApi, type UTCTimestamp } from 'lightweight-charts'
 
-const props = withDefaults(defineProps<{ points: Array<[number, number]>; height?: number }>(), { height: 220 })
+const props = withDefaults(defineProps<{ points: Array<[number, number]>; height?: number; unit?: 'R' | '%' }>(), { height: 220, unit: 'R' })
 const el = ref<HTMLDivElement | null>(null)
 let chart: IChartApi | null = null
 let series: ISeriesApi<'Baseline'> | null = null
@@ -45,7 +45,7 @@ onMounted(() => {
     bottomFillColor1: 'rgba(239,68,68,0.02)',
     bottomFillColor2: 'rgba(239,68,68,0.25)',
     lineWidth: 2,
-    priceFormat: { type: 'custom', formatter: (v: number) => `${v.toFixed(1)}R` },
+    priceFormat: { type: 'custom', formatter: (v: number) => (props.unit === '%' ? `${v.toFixed(0)}%` : `${v.toFixed(1)}R`) },
   })
   ro = new ResizeObserver(() => chart?.applyOptions({ width: el.value?.clientWidth ?? 600 }))
   ro.observe(el.value)
