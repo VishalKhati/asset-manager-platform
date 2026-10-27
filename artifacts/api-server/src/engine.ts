@@ -78,7 +78,8 @@ async function main(): Promise<void> {
     wake = true;
   });
 
-  const api = config.TELEGRAM_BOT_TOKEN ? telegramApi(config.TELEGRAM_BOT_TOKEN) : null;
+  const tgClient = { apiRoot: config.TELEGRAM_API_ROOT || undefined };
+  const api = config.TELEGRAM_BOT_TOKEN ? telegramApi(config.TELEGRAM_BOT_TOKEN, tgClient) : null;
   const outbox = new OutboxDispatcher({ api, signalChats: signalChats(), adminChats: config.TG_ADMIN_IDS, siteUrl: config.PUBLIC_SITE_URL, log });
   if (!api) log.warn("TELEGRAM_BOT_TOKEN not set: messages are recorded but not sent");
 
@@ -139,6 +140,7 @@ async function main(): Promise<void> {
         },
       },
       log,
+      tgClient,
     );
   }
 

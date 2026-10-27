@@ -23,6 +23,10 @@ No PostgreSQL installed? `pip install pgserver` then:
 import pgserver; print(pgserver.get_server("~/.cache/amp-pg/data", cleanup_mode=None).get_uri())
 ```
 
+**Live price on the chart.** Set `LIVE_QUOTE_URL=https://forex-data-feed.swissquote.com/public-quotes/bboquotes/instrument/XAU/USD` on the API (a Binance bookTicker URL also works). It polls about once a second while a dashboard is open and moves the newest candle on the Overview chart. It is display only: signals still come from closed M1 bars. During the forward test only signed-in users get it, because the public page is delayed.
+
+**Live bars without MT5.** `python -m mt5feeder.spot --api-url http://localhost:8080 --secret dev-secret` builds 1-minute spot gold bars from Swissquote's public quotes and sends them through the real ingest API. It does not backfill, so start it on top of existing history. `mt5feeder.binance` (XAUUSDT perp) also works, but the perp trades several dollars above spot, so its levels won't match an MT5 account.
+
 **Demo data without MT5.** Push a fixture through the real ingest API. Set `LATE_SIGNAL_S=999999999` on the engine so historical signals count as posted:
 
 ```bash
@@ -59,7 +63,8 @@ See [feeder/README.md](../feeder/README.md). Point `API_URL` at the Linux VPS's 
 1. Create a bot with @BotFather and put the token in `TELEGRAM_BOT_TOKEN`.
 2. Create a private channel for the forward test, add the bot as an admin, and set `TG_CHANNEL_PRIVATE_ID`. Get the channel id by forwarding a channel post to @userinfobot.
 3. Put your own numeric user id in `TG_ADMIN_IDS`, then message the bot `/health`.
-4. To go public, set `TG_CHANNEL_PUBLIC_ID` and `SIGNAL_MODE=live` **only after Gate 2 and Gate 3** (see PLAN.md).
+4. **Network blocks Telegram?** (Some Indian ISPs reset every connection to `api.telegram.org`.) Deploy `deploy/telegram-relay/worker.js` as a free Cloudflare Worker with your bot's id in `ALLOWED_BOT_ID`, then set `TELEGRAM_API_ROOT=https://<worker>.<you>.workers.dev` on the engine. Leave it empty on a server that can reach Telegram.
+5. To go public, set `TG_CHANNEL_PUBLIC_ID` and `SIGNAL_MODE=live` **only after Gate 2 and Gate 3** (see PLAN.md).
 
 ## Everyday operations
 

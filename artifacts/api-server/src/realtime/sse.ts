@@ -10,6 +10,7 @@ import { db, pool, signalEventsTable, signalsTable } from "@workspace/db";
 import type { Logger } from "pino";
 import { metrics } from "../lib/metrics.js";
 import { toView } from "../services/signals.js";
+import type { Quote } from "./quotes.js";
 
 interface Client {
   res: Response;
@@ -74,6 +75,21 @@ export class SseHub {
     const data = JSON.stringify(toView(s, events));
     for (const c of this.clients) {
       if (this.visible(s, c.publicOnly)) c.res.write(`id: ${lastId}\nevent: signal\ndata: ${data}\n\n`);
+    }
+  }
+
+  hasClients(): boolean {
+    return this.clients.size > 0;
+  }
+
+  /**
+   * Live price, sent without an event id so it never moves a client's Last-Event-ID.
+   * Public clients get it only when the public chart is not delayed.
+   */
+  broadcastQuote(q: Quote): void {
+    const msg = `event: quote\ndata: ${JSON.stringify(q)}\n\n`;
+    for (const c of this.clients) {
+      if (!c.publicOnly || this.o.publicDelayMin === 0) c.res.write(msg);
     }
   }
 

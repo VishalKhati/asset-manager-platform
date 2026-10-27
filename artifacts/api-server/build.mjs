@@ -101,6 +101,10 @@ async function buildAll() {
       "electron",
     ],
     sourcemap: "linked",
+    // Keep class names when the bundler renames clashing identifiers. node-fetch (used by
+    // grammY) checks `signal.constructor.name === "AbortSignal"`, and a renamed class made
+    // every Telegram request fail instantly with "Network request failed".
+    keepNames: true,
     plugins: [
       // pino relies on workers to handle logging, instead of externalizing it we use a plugin to handle it
       esbuildPluginPino({ transports: ["pino-pretty"] })
